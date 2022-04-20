@@ -1,0 +1,133 @@
+Tis directory uses the updated DEM model that extends into the neighborhood
+The transect is 559 cell x 1.5125 m each
+
+
+Directories:
+
+NOTE: RunB.0 is the mint directly as of 1/5/2021
+
+RunA.0 -- 'Base' case model from Erica work -- fshale=5.605e-08
+RunA.0.clmup.sm -- 'Base' model including smoothed DEM and CLM vegetation types
+RunA.1 -- High K -- fshale=5.605e-07
+RunA.2 -- Low K  -- fshale=5.605e-09
+RunA.3 -- Exponential K; fshale0=5.605e-07, fshale1=5.605e-9
+RunA.4 -- Exponential K with higher decay rate; fshale0=5.605e-07, fshale1=5.605e-12
+
+RunB.0 -- 'Base' model including smoothed DEM and CLM vegetation types -- same as RunA.0.clmup.sm (I think)
+RunB.1 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10 
+RunB.2 -- wshale=5.605e-07. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
+RunB.3 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-06, fshale1=5.605e-10
+
+RunC.0 -- 'Base' model with shallower (3m) soil layer
+RunC.1 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
+RunC.2 -- wshale=5.605e-07. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
+
+To-Do...
+Runs with wshale=fshale0 --> two layer system (RunC.2 has this)
+Runs with
+
+
+Completion Notes:
+   Done: A.1, A.2, A.3, A.4 -- Note that A.0 and B.0 are the same, but B.0 is more up-to-date
+         B.0, B.1, B.2, B.3, B.4
+         C.0, C.1, C.2
+
+
+
+
+Workflow Outline:
+ParFlow-CLM:
+(1): Initial Conditions Pressure Field
+	(a): 1000 year initial conditions run with constant recharge (transect_ic.tcl)
+        (b): Restart for 50 year simulation with CLM turned on (transect_spinupA.tcl)
+        NOTE: only doing these runs once, then will use this as IC pressure throughout
+(2): Spinup:
+	(a): 10 years using average MET data (transect_spinup.tcl)
+        (b): Dump at 24 hours 
+(3): Transient 2000-2016
+	(a): Dump at 24 hours
+(4): Transient 2017-2021
+	(a): Dump at 3 hours
+
+Ecoslim:
+(1): Spinup1
+	(a): ParFlow spinup at 240 hour velocity fields
+	(b): Run for 1000 years 
+(2): Spinup2
+	(a): Restart ecoslim spinup1 using ParFlow spinup at 24 hour velocity fields
+	(b): Run for 50 years
+(3): 2000-2016
+	(a): 24 hour velocity fields
+(4): 2016-2021
+	(a): 24 hour velocity fields
+
+
+
+
+
+Practical Workflow with Scripts:
+Simulation Setup:
+
+Running Simulation:
+    ParFlow
+       run_both.sc -- runs both parflow and ecoslim
+       run_tcl.sc  -- runs parflow
+    EcoSLIM:
+       run_both.sc -- runs both parflow and ecoslim
+       Or
+       run_eco.sc -- runs just ecoslim
+       Or
+       loop_eco.sc -- perfrom run_eco.short.sc
+       run_eco.short.sc -- only re-runs slimin.txt.2017_2021
+   
+Local Analysis -- after the full parflow/ecoslim is completed
+    Run: python pull_parflow_wl_v5.py
+    Run: python read_vtk_v4.py
+    Run: tclsh vis_vtk.tcl
+
+Transferring Files -- only select files because .pfb are huge
+   (1) rsync full directory minus big files from server to local
+         - use 'utils/rsync_helper.txt'
+   (2) manually copy files listed below
+             
+
+-----------
+Plotting
+-----------
+
+Files to Copy:
+  Use utils 'rsync_helper.txt'
+
+  ParFlow Fields in 'wy_2017_2021' dir
+       wy_2017_2021.out.velx.01683.pfb
+       wy_2017_2021.out.vely.01683.pfb
+       wy_2017_2021.out.velz.01683.pfb
+       wy_2017_2021.out.satur.01683.pfb
+
+  EcoSLIM from 'ecoslim_2017_2021' dir 
+      Note: needs to be updated EcoSLIM)
+      wy2017_2021_eco_pnts.00001683.vtk
+
+  Files that should be handled with 'rsync_helper.txt'
+        Permeability and Saturation Fields (from vis_vtk.tcl)
+          tfg.out.Perm.vtk 
+          wy_2017_2021.out.satur.01683.pfb
+      From read_vtk_v4.py
+          ecoslim_rtd.pk
+          parflow_out/wy_2017_2021_wt_bls.csv
+
+
+
+
+Up-to-date Scripts:
+  vel_decomp.py - Plots ecoslim infiltration locations. Requires the updated Ecoslim
+  pull_parflow_wl_v5.py - Reads water table simulations
+  read_vtk_v4.py - Reads Ecoslim output
+  plot_results_v5.py - Post run plotting and analysis
+  sparse_vel_files.py - Takes every 10th parflow timestep file and writes to new dir. Using this as way to run Ecoslim and 10 day resolution for spinup.
+
+  mangle_clm.py - utilities script to update the 1D clm vegetation file
+  mangle_vel.py - post analysis script to write velocity vectors to vtk file for Paraview vis
+  send_pnts.py  - utilities script to put select ecoslim pnts files into a new directory
+  vel_decomp.py - plotting script to show where Ecoslim particle infiltration regions are
+  
