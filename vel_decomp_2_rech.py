@@ -186,6 +186,7 @@ ts_list_.sort()
 
 hut = hydro_utils(dz_scale=dz_scale)
 for i in ts_list_:
+    print ('working on {}/{}'.format(i, len(ts_list_)))
     try:
         hut.read_fields(i, directory, header)
         
@@ -193,7 +194,6 @@ for i in ts_list_:
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
-        
     except TypeError:
         pass
     
