@@ -83,7 +83,11 @@ class hydro_utils():
         
         fn_velz = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'velz',timestep))
         self.velz = read_pfb(fn_velz)[1:,:,:]
-        
+	
+        fn_et = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'evaptrans',timestep))
+        self.et = read_pfb(fn_et)       
+
+ 
 
     def pull_wtd(self):
         wtd = pftools.hydrology.calculate_water_table_depth(self.press, self.sat, self.dz_scale)
@@ -92,7 +96,10 @@ class hydro_utils():
     def pull_storage(self):
         return pftools.hydrology.calculate_subsurface_storage(self.porosity, self.press, self.sat, self.specific_storage, 1.5125, 1.0, self.dz_scale)
         
-    
+    def pull_et(self):
+        return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
+
+
     def vel_bedrock_layer(self, bedrock_mbls):
         #Z  = np.flip(self.dz_scale).cumsum() # depth below land surface for each layer
         Z_ = self.dz_scale.sum() - self.dz_scale.cumsum() + dz_scale/2 # cell-centered z value, starting at base of the domain then going up
@@ -143,7 +150,7 @@ dz_scale = 10 * dz
 
 
 
-
+"""
 # Define timesteps and depth of bedrock in the model
 ts   = 1683
 bedrock_mbls=9.0
@@ -157,7 +164,7 @@ wtd = hut.pull_wtd()
 specific_storage = hut.pull_storage() 
 velx_bed,  velz_bed  = hut.vel_bedrock_layer(bedrock_mbls)
 velx_soil, velz_soil = hut.vel_soil_layer(bedrock_mbls)
-
+"""
 
 
 #
@@ -172,6 +179,7 @@ header    = 'wy_2017_2021'
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
                'specific_storage':{},
+               'et':{},
                'velbed':{},
                'velsoil':{}}
 
@@ -192,6 +200,7 @@ for i in ts_list_:
         
         pf_out_dict['wtd'][i] = hut.pull_wtd()
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
+        pf_out_dict['et'][i] = hut.et()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
     except TypeError:
