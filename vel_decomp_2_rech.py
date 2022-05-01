@@ -200,7 +200,7 @@ for i in ts_list_:
         
         pf_out_dict['wtd'][i] = hut.pull_wtd()
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
-        pf_out_dict['et'][i] = hut.et()
+        pf_out_dict['et'][i] = hut.pull_et()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
     except TypeError:
