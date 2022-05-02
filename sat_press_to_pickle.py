@@ -57,5 +57,5 @@ for i in range(nsteps):
         print ('timstep {} does not exists'.format(i))
         
 # Save it
-with open('press_out_dict.pk', 'wb') as f:
+with open('parflow_out/press_out_dict.pk', 'wb') as f:
     pk.dump(out_dict, f)      

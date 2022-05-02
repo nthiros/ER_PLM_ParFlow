@@ -19,9 +19,10 @@ RunC.0 -- 'Base' model with shallower (3m) soil layer
 RunC.1 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
 RunC.2 -- wshale=5.605e-07. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
 
-To-Do...
-Runs with wshale=fshale0 --> two layer system (RunC.2 has this)
-Runs with
+RunD.0 -- thinner soil layers: wshale=5.605e-7 fshale=5.605e-7
+RunD.1 -- wshale=5.605e-8  fshale=5.605e-8
+RunD.2 -- wshale=5.605e-6  fhsale=5.605e-6
+
 
 
 Completion Notes:
@@ -29,7 +30,7 @@ Completion Notes:
          B.0, B.1, B.2, B.3, B.4
          C.0, C.1, C.2
 
-
+   Not Done: D.0, D.1, D.2
 
 
 Workflow Outline:

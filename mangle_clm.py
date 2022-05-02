@@ -1,3 +1,5 @@
+# Alters the orignal drv_vegm.dat file to change the plant-type distribution
+
 import numpy as np
 import pandas as pd
 import os

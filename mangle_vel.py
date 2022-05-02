@@ -1,3 +1,6 @@
+# Reads in a Parflow velocity .pfb file for a single timestep
+# Writes a vtk file with the velocity vectors
+
 import numpy as np
 import os
 from parflowio.pyParflowio import PFData
