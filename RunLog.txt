@@ -118,11 +118,11 @@ Files to Copy:
 
 
 Up-to-date Scripts:
-  vel_decomp.py - Plots ecoslim infiltration locations. Requires the updated Ecoslim
+  vel_decomp.py         - Plots ecoslim infiltration locations. Requires the updated Ecoslim
   pull_parflow_wl_v5.py - Reads water table simulations
-  read_vtk_v4.py - Reads Ecoslim output
-  plot_results_v5.py - Post run plotting and analysis
-  sparse_vel_files.py - Takes every 10th parflow timestep file and writes to new dir. Using this as way to run Ecoslim and 10 day resolution for spinup.
+  read_vtk_v4.py        - Reads Ecoslim output
+  plot_results_v5.py    - Post run plotting and analysis
+  sparse_vel_files.py   - Takes every 10th parflow timestep file and writes to new dir. Using this as way to run Ecoslim and 10 day resolution for spinup.
 
   mangle_clm.py - utilities script to update the 1D clm vegetation file
   mangle_vel.py - post analysis script to write velocity vectors to vtk file for Paraview vis
