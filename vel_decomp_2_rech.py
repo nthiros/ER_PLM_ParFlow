@@ -68,7 +68,10 @@ class hydro_utils():
         
         fn_porosity = os.path.join(directory, '{}.out.{}.pfb'.format(header,'porosity'))
         self.porosity = read_pfb(fn_porosity)
-        
+       
+        fn_et = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'evaptrans',timestep))
+        self.et = read_pfb(fn_et)
+ 
         # Need to think about shapes here
         # This indexing is based on matching z velocity with K constrasts...
         fn_velx = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'velx',timestep))
@@ -87,7 +90,9 @@ class hydro_utils():
 
     def pull_storage(self):
         return pftools.hydrology.calculate_subsurface_storage(self.porosity, self.press, self.sat, self.specific_storage, 1.5125, 1.0, self.dz_scale)
-        
+       
+    def pull_et(self):
+         return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
     
     def vel_bedrock_layer(self, bedrock_mbls):
         #Z  = np.flip(self.dz_scale).cumsum() # depth below land surface for each layer
@@ -166,7 +171,8 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
                'specific_storage':{},
                'velbed':{},
-               'velsoil':{}}
+               'velsoil':{},
+               'et':{}}
 
 # Use only files that exist
 ff = glob.glob(os.path.join(directory,'*press*'))
@@ -184,6 +190,7 @@ for i in ts_list_:
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
+        pf_out_dict['et'][i] = hut.et()
     except TypeError:
         pass
     
