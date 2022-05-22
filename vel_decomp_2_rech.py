@@ -172,7 +172,9 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'specific_storage':{},
                'velbed':{},
                'velsoil':{},
-               'et':{}}
+               'et':{},
+               'sat':{},
+               'press':{}}
 
 # Use only files that exist
 ff = glob.glob(os.path.join(directory,'*press*'))
@@ -191,6 +193,8 @@ for i in ts_list_:
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
         pf_out_dict['et'][i] = hut.pull_et()
+        pf_out_dict['sat'][i] = hut.sat
+        pf_out_dict['press'][i] = hut.press
     except TypeError:
         pass
     
