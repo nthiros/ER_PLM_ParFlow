@@ -282,9 +282,9 @@ rtd_dict           = get_rtd.read_vtk()
 
 
 # Save the results to a dictionary
-with open('ecoslim_MeanAge.pk', 'wb') as f:
+with open('./parflow_out/ecoslim_MeanAge.pk', 'wb') as f:
     pickle.dump(age_dict, f) 
-with open('ecoslim_rtd.pk', 'wb') as ff:
+with open('./parflow_out/ecoslim_rtd.pk', 'wb') as ff:
     pickle.dump(rtd_dict, ff) 
 
 
