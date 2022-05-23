@@ -19,8 +19,12 @@ import pdb
 # External info needed to parse EcoSlim vtk
 #------------------------------------------------------   
 # Read in well info -- created by well_info_v2.py
-well_df = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col=('well'))
+#well_df = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col=('well'))
+well_df = pd.read_csv('../utils/wells_2_pf_v4.dummy.csv', index_col=('well'))
 
+
+# depth below land surface to bedrock
+#bedrock_bls = 9.0
 
 
 #----------------------------------------------------
@@ -123,6 +127,10 @@ class ecoslim_pnts_vtk():
 
         # Age Distribution
         self.rtd = {}
+        
+        # PID lists
+        self.pid_list = []
+        
 
     def find_pnts_vtk(self, dir_loc):
         '''Gathers all *.vtk files in directory with path dir_loc into a list.
@@ -136,6 +144,51 @@ class ecoslim_pnts_vtk():
         self.vtk_files = ff
         return ff
            
+    
+    def particles_in_bedrock(self, dd, pt_xyz):
+        # update 05/23/22 -- find pid of particles that go into the bedrock
+        # This does not work.
+        # Either a bug in Ecoslim pid or running into floating point issues
+    
+        #pdb.set_trace()        
+        pid = dd['pid']    
+        
+        # Drop pid that already in bedrock
+        #try:
+        #   mm = np.intersect1d(pid, np.unique(np.concatenate(self.pid_list)), return_indices=True)[1]
+        #   m_ = np.ones(len(pid)).astype(bool)
+        #   m_[mm] = False
+        #   pid = pid[m_]
+        #   pt_xyz = pt_xyz[m_]
+        #   print (pid.shape)
+        #except ValueError:
+        #    print (pid.shape)
+        #    pass
+        
+        bed_pid = []
+        for i in range(len(dem))[::-1]:
+        ##for i in range(len(dem)):
+            bed_pid_ind = np.where((pt_xyz[:,0]<=dem[i,0]) & (pt_xyz[:,2]<=(dem[i,2]-bedrock_bls)))[0]    
+            bed_pid.append(pid[bed_pid_ind])
+        #    # delete these particles to avoid over-counting
+        #    pt_xyz = np.delete(pt_xyz, bed_pid_ind, 0)
+        #    pid    = np.delete(pid, bed_pid_ind, 0)
+            
+        #for i in range(len(dem))[::-1]: 
+        #    xhigh = pt_xyz[:,0] <= dem[i,0] + 1.5125
+        #    xlow  = pt_xyz[:,0] >= dem[i,0]  
+        #    zhigh = pt_xyz[:,2] <= dem[i,2] - bedrock_bls
+        #    msk  = np.column_stack((xlow,xhigh,zhigh))                
+        #    msk_ = msk.sum(axis=1)==3
+        #    bed_pid.append(pid[msk_])
+            
+        #bed_pid = [pid[np.where((pt_xyz[:,0]<=dem[i,0]) & (pt_xyz[:,2]<=(dem[i,2]-bedrock_bls)))[0]] for i in range(len(dem))[::-1]]    
+        #pdb.set_trace()
+        pid_list = np.unique(np.concatenate((bed_pid)))
+        self.pid_list.append(pid_list)
+        return pid_list
+            
+    
     def read_vtk(self):
         '''Loop through all vtk files and paticle Time, Mass, and Source around each well.
            Returns a dictionary where first key is the int(model time) and the second key is the str(well location) name.
@@ -156,7 +209,7 @@ class ecoslim_pnts_vtk():
                 # Sample Depth +/- a couple of meters for borehole PLM7
                 zt = self.wells_df.loc[w,'land_surf_cx']  - self.wells_df.loc[w,'smp_depth_m'] + 2.0
                 zb = self.wells_df.loc[w,'land_surf_cx']  - self.wells_df.loc[w,'smp_depth_m'] - 2.0
-            elif w in ['PLM1','PLM6']:
+            else:
                 # Top of screen then bottom of screen -- for piezos PLM1 and PLM6
                 zt = self.wells_df.loc[w,'land_surf_cx']  - self.wells_df.loc[w,'screen_top_m']
                 zb = self.wells_df.loc[w,'land_surf_cx']  - self.wells_df.loc[w,'screen_bot_m']
@@ -168,6 +221,7 @@ class ecoslim_pnts_vtk():
 
         # Loop through each vtk file
         for i in range(len(self.vtk_files)):
+            #pdb.set_trace()
             f = self.vtk_files[i]
             print ('{}/{}'.format(i+1, len(self.vtk_files)))
             
@@ -175,14 +229,17 @@ class ecoslim_pnts_vtk():
             # xyz points of all particles -- big list
             pt_xyz = np.array(dd.points)
             
+            # find particles pid that go into bedrock
+            #pid_list = self.particles_in_bedrock(dd.copy(), pt_xyz.copy())
+            
             ii = int(f.split('.')[-2])
             self.rtd[ii] = {}
             
             # Loop through each well
             for w in range(len(pf_well_coords)):
                 # Draw a box around well points to collect particles near the well, meters
-                xhigh = pt_xyz[:,0] <= pf_well_coords[w,0]+2.0 
-                xlow  = pt_xyz[:,0] >= pf_well_coords[w,0]-2.0  
+                xhigh = pt_xyz[:,0] <= pf_well_coords[w,0] + 1.5125 #2.0 
+                xlow  = pt_xyz[:,0] >= pf_well_coords[w,0] - 1.5125 #2.0  
                 zhigh = pt_xyz[:,2] <= pf_well_coords[w,2] # top of screen
                 zlow  = pt_xyz[:,2] >= pf_well_coords[w,3] # bottom of screen
                 
@@ -194,16 +251,32 @@ class ecoslim_pnts_vtk():
                 mass   = dd['Mass'][msk_]
                 source = dd['Source'][msk_]
                 Xin    = dd['xInit'][msk_]
+                Yin    = dd['yInit'][msk_]
+                pid    = dd['pid'][msk_]
+                
+                # This does not work
+                # where do pid at wells overlap with pid of bedrock?
+                #match = np.intersect1d(pid_list, pid)
+                #match  = np.intersect1d(np.unique(np.concatenate(self.pid_list)), pid)
+                #match_frac = len(match)/len(pid)
+                #print ('{} : {:.3f}%'.format(self.wells_df.index[w], match_frac*100))
                 
                 rtd = np.column_stack((time,mass,source,Xin))
                 self.rtd[ii][well_df.index[w]] = rtd
+                
         return self.rtd    
             
+
+# DEM info
+Z_  = np.loadtxt('elevation_v4.sa', skiprows=1)
+X_  = np.arange(len(Z_))*1.5125 
+dem = np.column_stack((X_,np.zeros_like(X_), Z_))
+
 
 # Particle Ages
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2017_2021')
-get_rtd.vtk_files  = vtk_files[::5]
+get_rtd.vtk_files  = vtk_files
 rtd_dict           = get_rtd.read_vtk()
 
 
