@@ -268,15 +268,15 @@ class ecoslim_pnts_vtk():
             
 
 # DEM info
-Z_  = np.loadtxt('elevation_v4.sa', skiprows=1)
-X_  = np.arange(len(Z_))*1.5125 
-dem = np.column_stack((X_,np.zeros_like(X_), Z_))
+#Z_  = np.loadtxt('elevation_v4.sa', skiprows=1)
+#X_  = np.arange(len(Z_))*1.5125 
+#dem = np.column_stack((X_,np.zeros_like(X_), Z_))
 
 
 # Particle Ages
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2017_2021')
-get_rtd.vtk_files  = vtk_files
+get_rtd.vtk_files  = vtk_files[::5]
 rtd_dict           = get_rtd.read_vtk()
 
 
