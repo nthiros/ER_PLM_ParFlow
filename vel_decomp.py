@@ -529,7 +529,7 @@ wells = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col='well')
 
 
 # Read in EcoSLIM particles
-rtd_dict = pd.read_pickle('./ecoslim_rtd.pk')
+rtd_dict = pd.read_pickle('./parflow_out/ecoslim_rtd.pk')
 
 
 # Dates for sampling
