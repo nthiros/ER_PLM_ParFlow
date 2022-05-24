@@ -503,12 +503,14 @@ for i in range(3):
     
     for t in range(len(time_list)):
         model_time = time_list[t]
-    
-        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
-        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
-        tau_med = np.median(rtd_df['Time'])
-        # not sure here, some NANs where there are zero particles
-        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+        try:
+            rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+            tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+            tau_med = np.median(rtd_df['Time'])
+            # not sure here, some NANs where there are zero particles
+            rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+        except ValueError:
+            pass
            
         ax1 = ax[i]
         
@@ -560,12 +562,14 @@ for i in range(3):
     
     for t in range(len(time_list)):
         model_time = time_list[t]
-    
-        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
-        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
-        tau_med = np.median(rtd_df['Time'])
-        # not sure here, some NANs where there are zero particles
-        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+        try:
+            rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+            tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+            tau_med = np.median(rtd_df['Time'])
+            # not sure here, some NANs where there are zero particles
+            rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+        except ValueError:
+            pass
            
         ax1 = ax[i]
         
@@ -594,7 +598,6 @@ for i in range(3):
 
 ax[2].set_xlabel('Particle Ages (years)')    
 #ax[2,1].set_xlabel('Particle Ages (years)')
-
 #plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
 #plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
 plt.show()

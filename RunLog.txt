@@ -101,6 +101,13 @@ Files to Copy:
        wy_2017_2021.out.vely.01683.pfb
        wy_2017_2021.out.velz.01683.pfb
        wy_2017_2021.out.satur.01683.pfb
+       wy_2017_2021.out.evaptrans.01683.pfb
+       wy_2017_2021.out.porosity.pfb
+       wy_2017_2021.out.press.01683.pfb
+       wy_2017_2021.out.specific_storage.pfb
+       
+       Use: rsync -auvz --include='*01683.pfb*' --exclude='*.*' nt126396@skypilot.geol.umt.edu:projects/PLM_transect.v5/RunA.1/wy_2017_2021/ ./
+
 
   EcoSLIM from 'ecoslim_2017_2021' dir 
       Note: needs to be updated EcoSLIM)
