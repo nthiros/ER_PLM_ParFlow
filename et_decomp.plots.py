@@ -1,11 +1,9 @@
-# Update: 05/01/2022 makes less plots
 # Makes a bunch of plots of the ParFLOW-CLM land surface dynamics
 # 
 # Need to run these scripts first...
 # Run these on the server where all the output files are located
 # -- et_to_pickle.py
-# -- sat_press_to_pickle.py
-# -- pull_parflow_wtab_all.py
+# -- vel_decomp_2_rech.py
 
 
 
@@ -1174,8 +1172,8 @@ plt.show()
 #------------------------------------------------------------
 
 # Read in Raster Fields
-prs = pd.read_pickle('press_out_dict.pk')
-sat = pd.read_pickle('sat_out_dict.pk')
+#prs = pd.read_pickle('press_out_dict.pk')
+#sat = pd.read_pickle('sat_out_dict.pk')
 
 # Shape for pressure and saturatio field is 32 rows by 559 columns
 #   sat[0,:] is the bottom layer of the domain, sat[31,:] is land surface
@@ -1241,15 +1239,18 @@ zinds    = [31,  28,  24,  20]
 zbls     = z_info['Depth_bls'][zinds].to_list()
 zbls_map = dict(zip(['d0','d1','d2','d3'], zbls))
 
+sat = pf['sat'].copy()
+
 sat_dict = {}
 for j in range(len(zinds)):
     sat_df   = pd.DataFrame()
     for i in list(sat.keys()):
         dd = sat[i].copy()
         # pull saturation values at constant depth below land surface
-        dd_  = dd[zinds[j],:]
+        dd_  = dd[zinds[j],0,:]
         sat_df[i] = dd_
-    sat_df = sat_df.iloc[:,1:].T
+    #sat_df = sat_df.iloc[:,1:].T
+    sat_df = sat_df.T
     sat_df.index = dates
     sat_df.insert(loc=0, column='wy', value=wy_daily)
     sat_dict[list(zbls_map.keys())[j]] = sat_df

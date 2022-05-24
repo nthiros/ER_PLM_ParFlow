@@ -1,3 +1,13 @@
+# Script to process the Parflow velocity fields
+
+
+
+# To-do:
+# Plot the Vz velocity magnitudes without first calculating the entire Vx,Vz vector 
+
+
+
+
 import numpy as np
 import pandas as pd
 import os
@@ -10,10 +20,14 @@ from matplotlib import ticker
 import matplotlib.patches as patches
 plt.rcParams['font.size'] = 14
 
+import matplotlib.colors as colors
+
 
 
 #-------------------------------------------
-# Velocity Fields
+#
+# Read in and parse .pfb velocity fields
+#
 #-------------------------------------------
 vx_f = './wy_2017_2021/wy_2017_2021.out.velx.01683.pfb'
 vy_f = './wy_2017_2021/wy_2017_2021.out.vely.01683.pfb'
@@ -53,27 +67,23 @@ dom.save('vel_comps.vtk')
 Vx = vx[:,0,:] + 1.e-20
 Vz = vz[:,0,:] + 1.e-20
 
-mag = np.sqrt(Vx**2+Vz**2)
-ang = np.arctan2(Vz,Vx) * 180/np.pi
+Vel_mag = np.sqrt(Vx**2+Vz**2) # velocity vector magnitude
+Vel_ang = np.arctan2(Vz,Vx) * 180/np.pi # velocity vectory angle
 # These angles are measured as degrees form the line at (1,0) --> a horizontal line in plus x direction is the azimuth
-# Positive means the vector is pointing above horizontal 
-# Negative means the vector is pointing below horizontal
-# abs(ang) <= 90 means the vector is pointing to right direction
-# abs(ang) >= 90 means the vector is pointing to left  direction
+# Positive means the vector is pointing above the horizontal line (1,0) (3 o'clock)
+# Negative means the vector is pointing below the horizontal line (1,0)
 # ang=90 is straight up
 # ang=-90 is straight down
+# abs(ang) <= 90 means the vector is pointing to right direction
+# abs(ang) >= 90 means the vector is pointing to left  direction
 vtk = dom.copy()
 vtk.clear_arrays()
-ang_ = ang.copy()
-ang_[-1,0] = -180
-ang_[-1,-1] = 180
-vtk['Velocity Angle'] = ang_[:,np.newaxis,:].ravel()
+Vel_ang_ = Vel_ang.copy()
+Vel_ang_[-1,0] = -180
+Vel_ang_[-1,-1] = 180
+vtk['Velocity Angle'] = Vel_ang_[:,np.newaxis,:].ravel()
 
-#-----------
-# Plots
-#fig, ax = plt.subplots()
-#ax.hist(ang.ravel(), bins=50)
-#plt.show()
+
 
 """
 #-----------
@@ -96,13 +106,14 @@ plotter.show(auto_close=False, cpos='XZ')#, screenshot='./test.png')
 """
 
 
-#--------------------
-# Numpy plots
-# Vtk cell info
+#----------------------------
+#
+# Matplotlib Plotting
+#
+#----------------------------
+# Extract vtk cell info
 cell_bounds = np.array([np.array(vtk.cell_bounds(i))[[0,1,4,5]] for i in range(vtk.GetNumberOfCells())])
 cell_center = np.column_stack((cell_bounds[:,[0,1]].mean(axis=1), cell_bounds[:,[2,3]].mean(axis=1)))
-
-
 
 
 # Build a high denisty mesh
@@ -111,13 +122,9 @@ zs = np.arange(cell_bounds[:,[2,3]].min(), cell_bounds[:,[2,3]].max(), 0.1)
 xx, zz = np.meshgrid(xs, zs)
 
 
-
-
 # Map from vtk to high density grid
 # Note, this takes a long time - only run once
 RunIt = False
-
-
 if RunIt:
     xg, zg = xx.ravel(), zz.ravel()
     grid  = np.column_stack((xg,zg))
@@ -133,8 +140,6 @@ if RunIt:
 cgrid = np.loadtxt('cgrid.txt')
 
 
-
-
 # dummy index
 dum_ind = len(cell_bounds)
 cgrid[cgrid == -9999.0] = dum_ind
@@ -143,15 +148,19 @@ cgrid[cgrid == -9999.0] = dum_ind
 cc = cgrid.copy().reshape(len(zs),len(xs))
 cc[cc == dum_ind] = np.NaN
 
+
+#
+# Map from Parflow velocity grid to high density mesh
 # Velocity Angle
+#
 # Add a dummy value 
-ang = ang_[:,np.newaxis,:].ravel()
+ang = Vel_ang_[:,np.newaxis,:].ravel()
 dd = np.concatenate((ang, [dum_ind]))
 vel_ang = dd[cgrid.astype(int)]
 vel_ang[vel_ang==dum_ind] = np.NaN
 vel_ang = vel_ang.reshape(len(zs),len(xs))
 
-"""
+
 fig, ax = plt.subplots(figsize=(8,6))
 v = ax.imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
 # Mangle Colorbar
@@ -160,12 +169,27 @@ cax = divider.append_axes("right", size="1.5%", pad=0.05)
 cb = fig.colorbar(v, cax=cax, label='Velocity Angle')
 cb.locator = ticker.MaxNLocator(nbins=7)
 cb.update_ticks()
+fig.tight_layout()
 plt.show()
-"""
 
 
-#---------------------
-# Read in saturation
+
+# 
+# Mapper from higher density grid back to Parflow grid
+#
+# Parflow grid cell center cartesian coordinates
+xx_ = np.flip(cell_center[:,0].reshape(32,559), axis=0)
+zz_ = np.flip(cell_center[:,1].reshape(32,559), axis=0)
+
+
+
+
+
+#-----------------------------
+#
+# Read in saturation field
+#
+#-----------------------------
 sf = 'wy_2017_2021/wy_2017_2021.out.satur.01683.pfb'
 sat = read_pfb(sf)[:,0,:]
 
@@ -174,7 +198,8 @@ sat_mp = dds[cgrid.astype(int)]
 sat_mp[sat_mp==dum_ind] = np.NaN
 sat_mp = sat_mp.reshape(len(zs),len(xs))
 
-"""
+
+
 # Saturation
 # Add a dummy value 
 fig, ax = plt.subplots(figsize=(8,6))
@@ -185,9 +210,11 @@ cax = divider.append_axes("right", size="1.5%", pad=0.05)
 cb = fig.colorbar(v, cax=cax, label='Saturation')
 cb.locator = ticker.MaxNLocator(nbins=7)
 cb.update_ticks()
+fig.tight_layout()
 plt.show()
-"""
 
+
+# Find the Water Table
 # Loop through columns, find row where saturation occurs
 sat_layer = []
 for i in range(sat.shape[1]):
@@ -196,53 +223,261 @@ for i in range(sat.shape[1]):
     sat_layer.append(indtokeep-1)
     
     
-# What is velocity angle at these sat boundaries?
-vel_wt  = []
-vel_mag = []
-for v in range(ang_.shape[1]):
-    vel_wt.append(ang_[sat_layer[v],v])
-    vel_mag.append(mag[sat_layer[v],v])
+# What are the velocity components at the water table?
+vel_ang_wt  = []
+vel_mag_wt = []
+for v in range(Vel_ang_.shape[1]):
+    vel_ang_wt.append(Vel_ang_[sat_layer[v],v])
+    vel_mag_wt.append(Vel_mag[sat_layer[v],v])
 
 
 
-fig, ax = plt.subplots(ncols=1, nrows=2, figsize=(8,6))
-fig.subplots_adjust(right=0.85)
-v = ax[1].imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
-# Mangle Colorbar
-#fig.colorbar(v, ax=ax)
-divider = make_axes_locatable(ax[1])
+# Want to plot a line to delineate the water table depth
+sat_ = sat.copy()
+
+for i in range(len(sat_layer)):
+    sat_[sat_layer[i],i] = 2.0
+
+dds_ = np.concatenate((sat_.ravel(), [dum_ind]))
+sat_mp_ = dds_[cgrid.astype(int)]
+sat_mp_[sat_mp_==dum_ind] = np.NaN
+sat_mp_ = sat_mp_.reshape(len(zs),len(xs))
+
+sat_line = np.argwhere(sat_mp_==2.0)
+sat_line_uni = []
+for i in np.unique(sat_line[:,1]):
+    sat_line_uni.append(sat_line[sat_line[:,1]==i][-1])
+sat_line_uni = np.array(sat_line_uni)
+
+
+
+#
+# Land surface slope
+#
+slope = read_pfb('slope_x_v4.pfb')
+slope = slope[0,0,:] * 180/np.pi
+
+
+
+
+#
+# Velocity at Fractured Bedrock Interface
+#
+f = 'subsurface_lc102a0.mat'
+
+with open(f, 'r') as ff:
+    ll = ff.readlines()
+    
+ncells = None
+for i in range(len(ll)):
+    try: 
+        ll[i].split()[1]
+    except IndexError:
+        pass
+    else:
+        if ll[i].split()[1] == 'dzScale.nzListNumber':
+            ncells = int(ll[i].split()[2])
+            
+dz    = []             
+K_mhr = []
+por   = []
+for i in range(len(ll)):
+    try: 
+        ll[i].split()[1]
+    except IndexError:
+        pass
+    else:
+        for j in range(ncells):
+            if '.'.join(ll[i].split()[1].split('.')[:3]) == 'Cell.{}.dzScale'.format(j):
+                #print (ll[i].split()[-1])
+                dz.append(float(ll[i].split()[-1]))
+            if '.'.join(ll[i].split()[1].split('.')[:4]) == 'Geom.i{}.Perm.Value'.format(j):
+                #print (ll[i].split()[-1])
+                K_mhr.append(float(ll[i].split()[-1]))
+            if '.'.join(ll[i].split()[1].split('.')[:4]) == 'Geom.i{}.Porosity.Value'.format(j):
+                #print (ll[i].split()[-1])
+                por.append(float(ll[i].split()[-1]))
+
+# Mangle Units
+cell_multiplier = 10.0 
+cells_ = dz
+cells  = np.array(cells_) * cell_multiplier
+
+Z  = np.flip(cells).cumsum() # depth below land surface for each layer
+Z_ = cells.sum() - cells.cumsum() + cells/2 # cell-centered z value, starting at base of the domain then going up
+
+K   = np.array(K_mhr + [K_mhr[-1]]) / 3600
+por = np.array(por + [por[-1]])
+K   = np.flip(K)
+por = np.flip(por)
+
+#----------------
+# CHANGE ME
+#----------------
+
+fshale_bls = 9.0 # shale is 6 m bls
+
+fs_ind_ = (por==por.min()).argmin()-1
+fs_ind  = abs(Z_ - fshale_bls).argmin() # index of first bedrock layer
+#fs_ind += 1 #+1 is layer right above the first fshale layer
+
+
+#
+# Clip the velocity field at the bedrock depths
+#
+vel_ang_bed0 = Vel_ang_[fs_ind,:] # first bedrock cell
+vel_mag_bed0 = Vel_mag[fs_ind,:]
+
+#
+vel_ang_bed1 = Vel_ang_[fs_ind+1,:] # cell right about first bedrock
+vel_mag_bed1 = Vel_mag[fs_ind+1,:]
+
+
+
+
+# Plot a line to delineate the water fractured bedrock depth
+bed_img = sat.copy()*0.0
+bed_img[14,:]  = 2.0
+
+dds_    = np.concatenate((bed_img.ravel(), [dum_ind]))
+bed_mp = dds_[cgrid.astype(int)]
+bed_mp[bed_mp==dum_ind] = np.NaN
+bed_mp = bed_mp.reshape(len(zs),len(xs))
+
+bed_line = np.argwhere(bed_mp==2.0)
+bed_line_uni = []
+for i in np.unique(bed_line[:,1]):
+    bed_line_uni.append(bed_line[bed_line[:,1]==i][-1])
+bed_line_uni = np.array(bed_line_uni)
+
+
+
+
+#
+# How does water table depth compare to bedrock depth?
+
+
+
+
+
+# 
+# Plot
+#
+
+fig, axes = plt.subplots(ncols=1, nrows=3, figsize=(7,6))
+fig.subplots_adjust(top=0.96, bottom=0.12, right=0.8, left=0.2, hspace=0.25)
+#
+# Velocity Field 
+ax = axes[0]
+v = ax.imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
+# Line at water table
+ax.plot(xs[sat_line_uni[:,1]], zs[sat_line_uni[:,0]], color='C0', alpha=0.75, linewidth=1.0)
+# Line at bedrock
+ax.plot(xs[bed_line_uni[:,1]], zs[bed_line_uni[:,0]], color='C6', alpha=0.75, linewidth=1.0)
+# Colorbar
+divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="1.5%", pad=0.05)  
-cb = fig.colorbar(v, cax=cax, label='Velocity Angle')
+cb = fig.colorbar(v, cax=cax, label='Velocity Angle\n(deg)')
 cb.locator = ticker.MaxNLocator(nbins=7)
 cb.update_ticks()
 # Clean up
-ax[1].set_xlabel('Distance (m)')
-ax[1].set_ylabel('Elevation (m)')
-
-# Add in velocity angle at water table
+ax.set_ylabel('Elevation (m)')
+ax.minorticks_on()
+ax.grid()
+#
+# Velocity angle at water table
+ax = axes[1]
 X = np.arange(cell_bounds[:,[0,1]].min(), cell_bounds[:,[0,1]].max(), 1.5125)
-vv = ax[0].plot(X, vel_wt, color='black')
-ax[0].axhline(0, color='black', linestyle='--')
-ax[0].margins(x=0.0)
-#ax2 = ax[0].twinx()
-#ax2.plot(X, vel_mag)
-# Mangle
-divider = make_axes_locatable(ax[0])
+# WT Angle
+ax.plot(X, vel_ang_wt, color='C0', linewidth=1.5, alpha=0.75)
+# WT Mag
+#cc = np.array(vel_mag_wt)/3600
+#vv = ax[0].scatter(X, vel_ang_wt, linestyle='-', s=5.0, c=cc, norm=colors.LogNorm(vmin=cc[:-1].min(), vmax=cc[:-1].max()), cmap='viridis', zorder=8)
+#
+# Velocity angle at bedrock
+ax.plot(X, vel_ang_bed0, color='C2', linewidth=1.5, alpha=0.75)
+ax.plot(X, vel_ang_bed1, color='C3', linewidth=1.5, alpha=0.75)
+# bed Mag
+#cc = np.array(vel_mag_bed0)/3600
+#vv = ax[0].scatter(X, vel_ang_bed0, linestyle='-', s=5.0, c=cc, norm=colors.LogNorm(vmin=cc[:-1].min(), vmax=cc[:-1].max()), cmap='viridis', zorder=8)
+#
+# Topography slope
+ax.plot(X, slope, color='C4', linestyle='--', linewidth=1.5, alpha=1.0, label='Topo. Slope (deg)')
+#
+# Colorbar
+divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+#cb = fig.colorbar(vv, cax=cax, label='Velocity Mag.\n(m/s)')
+#cb.locator = ticker.MaxNLocator(nbins=7)
+#cb.locator = ticker.LogLocator(base=10.0, subs=[0.1])
+cb.update_ticks()
 cax.remove()
-#divider = make_axes_locatable(ax2)
-#cax = divider.append_axes("right", size="1.5%", pad=0.05) 
-#cax.remove()
+#
 # Cleanup
-ax[0].set_ylabel('Velocity Angle (deg)')
-#ax2.set_ylabel('Velocity Magnitude (m/hr)', color='C0')
+ax.axhline(0, color='black', linestyle='-')
+ax.margins(x=0.0)
+ax.grid()
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Velocity Angle\n(deg)')
+ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+ax.set_ylim(-125, 125)
+ax.minorticks_on()
+#
+# Velocity Magnitdues
+#
+ax = axes[2]
+X = np.arange(cell_bounds[:,[0,1]].min(), cell_bounds[:,[0,1]].max(), 1.5125)
+# WT mag
+#ax.plot(X, np.array(vel_mag_wt)*8760, color='C0', linewidth=1.5, alpha=0.75)
+# Velocity mag at bedrock
+ax.plot(X, np.array(vel_mag_bed0)*8760, color='C2', linewidth=1.5, alpha=0.75)
+#ax.plot(X, np.array(vel_mag_bed1)*8760, color='C3', linewidth=1.5, alpha=0.75)
+# Testing 
+ax.plot(X, np.array(Vz[fs_ind])*8760, color='C2', linestyle='--', linewidth=1.5, alpha=0.75)
+#
+# Colorbar
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+#cb.update_ticks()
+cax.remove()
+#
+# Cleanup
+#ax.set_yscale('log')
+ax.margins(x=0.0)
+ax.grid()
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Velocity Mag\n(m/s)')
+#ax.set_ylim(1.e-10, 1.e-6)
+#ax.minorticks_on()
+#ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=(1.0,), numticks=8))
+#ax.yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1,)))
+
+#ax[0].legend()
 plt.show()
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #--------------------------------------------
+#
 # Ecoslim Age Distributions
+#
 #--------------------------------------------
 
 def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
