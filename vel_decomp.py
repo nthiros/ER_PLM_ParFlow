@@ -1,13 +1,6 @@
 # Script to process the Parflow velocity fields
 
 
-
-# To-do:
-# Plot the Vz velocity magnitudes without first calculating the entire Vx,Vz vector 
-
-
-
-
 import numpy as np
 import pandas as pd
 import os
@@ -21,6 +14,8 @@ import matplotlib.patches as patches
 plt.rcParams['font.size'] = 14
 
 import matplotlib.colors as colors
+
+import pdb
 
 
 
@@ -480,6 +475,7 @@ plt.show()
 #
 #--------------------------------------------
 
+
 def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
     '''Convert particle ages at a single model time and well location to a residence time distribution.
     Returns:
@@ -500,10 +496,12 @@ def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
     rtd_df['Time'] /= 8760
     
     # Now some binning
-    #nbins = 10
-    gb =  rtd_df.groupby(pd.cut(rtd_df['Time'], nbins))
-    rtd_dfs = gb.agg(dict(Time='mean',Mass='sum',Source='mean',Xin='mean',wt='sum'))
-    rtd_dfs['count'] = gb.count()['Time']
+    if nbins:
+        gb =  rtd_df.groupby(pd.cut(rtd_df['Time'], nbins))
+        rtd_dfs = gb.agg(dict(Time='mean',Mass='sum',Source='mean',Xin='mean',wt='sum'))
+        rtd_dfs['count'] = gb.count()['Time']
+    else:
+        rtd_dfs = rtd_df
 
     return rtd_df, rtd_dfs
 
@@ -523,116 +521,346 @@ pf_17_21  =  pd.read_csv('./parflow_out/wy_2017_2021_wt_bls.csv')
 pf_17_21.index  =  pf_2_dates('2016-09-30', '2021-08-29', '24H')
 date_map = pd.DataFrame(pf_17_21.index, columns=['Date'])
 
+yrs = [2017,2018,2019,2020,2021] # Calender years within timeseries
+wy_inds_  = [np.where((date_map > '{}-09-30'.format(i-1)) & (date_map < '{}-10-01'.format(i)), True, False) for i in yrs]
+wy_inds   = np.array([wy_inds_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
+
+date_map['wy'] = wy_inds.ravel()
+
 
 # Well Info
-wells = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col='well') 
+wells = pd.read_csv('../utils/wells_2_pf_v4.dummy.csv', index_col='well') 
 
 
 # Read in EcoSLIM particles
 rtd_dict = pd.read_pickle('./parflow_out/ecoslim_rtd.pk')
 
-
 # Dates for sampling
-samp_date = '2021-05-11'
-model_time = date_map[date_map['Date'] == samp_date].index[0]
-model_time = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time).argmin()]
+#samp_date = '2021-05-11'
+#model_time = date_map[date_map['Date'] == samp_date].index[0]
+#model_time = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time).argmin()]
 #model_time = 1681
 
 
-# Read in DEM
+
+
+
+
+# testing new way to do this faster
+#---------------------------------------
+#
+# Extend to Include Temporal Dynamics
+#
+#---------------------------------------
 dem = pd.read_csv('Perm_Modeling/elevation.sa', skiprows=1, header=None, names=['Z'])
 dem['X'] = dem.index * 1.5125
 
-# Find location of particle inputs
-rtd_df_dict = {}
-for w in ['PLM1','PLM7','PLM6']:
-    rtd_df_dict[w] = flux_wt_rtd(rtd_dict, model_time, w, 15)[0]
 
-for i in list(rtd_df_dict.keys()):
-    rtd_df = rtd_df_dict[i]
-    dem[i] = 0.0
-    for j in range(len(rtd_df)):
-        ind = abs(dem['X'] - rtd_df.loc[j,'Xin']).idxmin()
-        dem.loc[ind, i] += 1.0
-
-# smooth out?
-dem = dem.groupby(pd.cut(dem.index, 150)).agg(dict(Z='mean',X='mean',PLM1='sum',PLM7='sum',PLM6='sum'))
+def pull_particles(mod_time, rtd_dict):
+    rtd_df_dict = {}
+    for w in list(rtd_dict[mod_time].keys()):
+        #pdb.set_trace()
+        rtd_df = flux_wt_rtd(rtd_dict.copy(), mod_time, w, False)[0]
+        #if w == 'PLM6':
+        #    print (time_list.loc[mod_time,'Date'], len(rtd_df), rtd_df['Mass'].sum())
+        rtd_df_locs_ = rtd_df.groupby(pd.cut(rtd_df['Xin'],bins=np.arange(0,559*1.5125,10.0)))
+        rtd_df_locs = rtd_df_locs_.agg(dict(Time='mean',Mass='sum',Source='mean',Xin='mean',wt='sum'))
+        rtd_df_locs['Xmu'] = np.arange(10.0/2,558*1.5125,10.0)
+        
+        rtd_df_dict[w] = rtd_df_locs
+    return rtd_df_dict
 
 #
-# Plots #1
-fig, ax = plt.subplots(ncols=1, nrows=2, gridspec_kw={'height_ratios': [1,2]}, figsize=(7,4))
-fig.subplots_adjust(right=0.82, top=0.98, hspace=0.05, left=0.15)
-# Plot Velocity Angle
-v = ax[1].imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
-# Plot well Locations
-for i in range(len(wells)):
-    w = wells.index[i]
-    xpos = wells.loc[w, 'X']
-    zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
-    rect = patches.Rectangle((xpos, zpos-5), 10, 10, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10)
-    ax[1].add_patch(rect)
-# Mangle Colorbar
-divider = make_axes_locatable(ax[1])
-cax = divider.append_axes("right", size="1.5%", pad=0.05)  
-cb = fig.colorbar(v, cax=cax, label='Velocity Angle (deg)')
-cb.locator = ticker.MaxNLocator(nbins=7)
-cb.update_ticks()
-# Clean up
-ax[1].set_xlabel('Distance (m)')
-ax[1].set_ylabel('Elevation (m)')
+# Pick a Year for plots
+time_list_ = date_map[date_map['wy']==2019]
+tinds_     = [i in list(rtd_dict.keys()) for i in time_list_.index]
+time_list  = time_list_[tinds_]
+
+inf_dict = {}
+for t in range(len(time_list)):
+    mod_time = time_list.index[t]
+    # smooth with grouping?
+    #dem_ = dem_.groupby(pd.cut(dem_.index, 100)).agg(dict(Z='mean',X='mean',PLM1='sum',PLM7='sum',PLM6='sum'))
+    inf_dict[mod_time] = pull_particles(mod_time=mod_time, rtd_dict=rtd_dict.copy())
+
+#
+# First of month index
+#first_month = [(time_list['Date'].dt.month==i).idxmax() for i in [10,11,12,1,2,3,4,5,6,7,8,9]]
+first_month = [(time_list['Date'].dt.month==i).idxmax() for i in [6]]
+colors = plt.cm.twilight(np.linspace(0.25,0.75,len(first_month)+1))
+
+
+wells_list = list(rtd_dict[1].keys())
+
+#
+# Maximum masses through all timesteps -- for normalization 
+mass_max = {}
+for w in wells_list:
+    max_ = 0
+    for t in list(inf_dict.keys()):
+        if inf_dict[t][w]['Mass'].sum() >= max_:
+            max_ = inf_dict[t][w]['Mass'].sum()
+        else:
+            pass
+    mass_max[w] = max_
+#
+# Masses on June First -- for normalization 
+mass_june = {}
+for w in wells_list:
+    mass_june[w] = inf_dict[(time_list['Date'].dt.month==6).idxmax()][w]['Mass'].sum()
+
+
+
+#
+# Plot of PLM1, PLM7, PLM6
+#
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
+fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
 # Add in Recharge Location
-for w in ['PLM1','PLM7','PLM6']: 
-    ax[0].plot(dem['X'], dem[w]/dem[w].max(), label=w)
+wells_list = ['PLM1','PLM7','PLM6']
+for mm in range(len(inf_dict.keys())):
+    m = list(inf_dict.keys())[mm]
+    inf_ = inf_dict[m]
+    for ww in range(len(wells_list)):
+        w = wells_list[ww]
+        #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color='C{}'.format(ww), alpha=0.5, label=w if mm==0 else '')
+        ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww), alpha=0.5, label=w if mm==0 else '')
+        if m in first_month:
+            #cc =  ['darkblue','darkorange','darkgreen']
+            #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color=cc[ww],  linestyle=(0, (2,2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
+            #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color='black', linestyle=(2, (2, 2)), alpha=0.5, label=w if mm==0 else '', zorder=10) 
+            ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww), linestyle=(0, (2,2)), alpha=1.0, label=w if mm==0 else '', zorder=10)
+            ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='black', linestyle=(2, (2,2)), alpha=0.75, label=w if mm==0 else '', zorder=10) 
+        # testing
+        if w == 'PLM6':
+            print ('{}  {}/{}  {}'.format(time_list.loc[m,'Date'], inf_[w]['Mass'].sum(), mass_june[w], inf_[w]['Mass'].sum()/mass_june[w]))
 # Cleanup
-ax[0].margins(x=0.0)
-ax[0].set_ylabel('Number of\nParticles')
-ax[0].legend(loc='upper left', bbox_to_anchor=(1.0, 1.0), frameon=False)
-divider = make_axes_locatable(ax[0])
+ax.set_xlabel('Distance (m)')
+ax.margins(x=0.0)
+ax.set_ylabel('Rel. Number\nof Particles')
+# x-axis
+ax.xaxis.set_major_locator(ticker.MultipleLocator(200))
+ax.xaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.tick_params(axis='x', bottom=True, top=False)
+# yaxis
+ax.set_ylim(0,1.05)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(0.25))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.05))
+# Legend
+leg = ax.legend(loc='upper left', bbox_to_anchor=(0.96, 1.1), frameon=False, handlelength=1, labelspacing=0.25, handletextpad=0.25)
+for lh in leg.legendHandles: 
+    lh.set_alpha(1)
+    lh.set_linewidth(3.0)
+divider = make_axes_locatable(ax)
 cax = divider.append_axes("right", size="1.5%", pad=0.05) 
 cax.remove()
-plt.savefig('./figures/recharge_loc.png', dpi=320)
-plt.savefig('./figures/recharge_loc.svg', format='svg')
+plt.savefig('./figures/recharge_loc.PLM1.PLM7.PLM6.png', dpi=300)
+plt.savefig('./figures/recharge_loc.PLM1.PLM7.PLM6.svg', format='svg')
+plt.show()
+
+
+#
+# Hillslope Plot
+#
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
+fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
+ax.plot(dem['X'], dem['Z'], color='black', linewidth=2.0)
+# Plot well Locations
+wells_list = ['PLM1','PLM7','PLM6']
+for i in range(len(wells_list)):
+    w = wells_list[i]
+    xpos = wells.loc[w, 'X']
+    zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
+    ax.scatter(xpos, zpos-10, marker='s', color='C{}'.format(i), label=wells_list[i])
+    #rect = patches.Rectangle((xpos-12, zpos-16), 20, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10)
+    #ax.add_patch(rect)
+# Cleanup
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Elevation (m)')
+ax.margins(x=0.0)
+# x-axis
+ax.xaxis.set_major_locator(ticker.MultipleLocator(200))
+ax.xaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.tick_params(axis='x', bottom=True, top=False)
+# yaxis
+ax.set_ylim(dem['Z'].min()-50, dem['Z'].max()+10)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
+# Legend
+leg = ax.legend(loc='upper left', bbox_to_anchor=(0.96, 1.1), frameon=False, handlelength=1, labelspacing=0.25, handletextpad=0.25)
+for lh in leg.legendHandles: 
+    lh.set_alpha(1)
+    lh.set_linewidth(3.0)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+cax.remove()
+plt.savefig('./figures/recharge_loc.hillslope.PLM1.PLM7.PLM7.png', dpi=300)
+plt.savefig('./figures/recharge_loc.hillslope.PLM1.PLM7.PLM7.png', format='svg')
 plt.show()
 
 
 
 
-#---------------------------------------
-# Extend to Include Temporal Dynamics
-#---------------------------------------
-dem = pd.read_csv('Perm_Modeling/elevation.sa', skiprows=1, header=None, names=['Z'])
-dem['X'] = dem.index * 1.5125
-
-
-def pull_particles(mod_time, rtd_dict, dem_df):
-    rtd_df_dict = {}
-    for w in ['PLM1','PLM7','PLM6']:
-        rtd_df_dict[w] = flux_wt_rtd(rtd_dict, mod_time, w, 15)[0]
-    
-    for i in list(rtd_df_dict.keys()):
-        rtd_df = rtd_df_dict[i]
-        dem_df[i] = 0.0
-        for j in range(len(rtd_df)):
-            ind = abs(dem_df['X'] - rtd_df.loc[j,'Xin']).idxmin()
-            dem_df.loc[ind, i] += 1.0
-    return dem_df
-
-
-
-time_list = list(rtd_dict.keys())[::5] + [model_time]
-date_list = date_map.loc[time_list, 'Date']
-dem_dict = {}
-for t in range(len(time_list)):
-    mod_time = time_list[t]
-    dem_ = pull_particles(mod_time=mod_time, rtd_dict=rtd_dict.copy(), dem_df=dem.copy())
-    # smooth with grouping?
-    dem_ = dem_.groupby(pd.cut(dem_.index, 100)).agg(dict(Z='mean',X='mean',PLM1='sum',PLM7='sum',PLM6='sum'))
-    dem_dict[mod_time] = dem_
 
 
 
 
-# Plot through time
+
+
+
+
+#
+# Plot of Floodplain, PLM6_soil, PLM1_soil
+#
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
+fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
+# Add in Recharge Location
+wells_list = ['X404','X494','X540']
+labs = ['PLM1 soil', 'PLM6 soil', 'Floodplain']
+for mm in range(len(inf_dict.keys())):
+    m = list(inf_dict.keys())[mm]
+    inf_ = inf_dict[m]
+    for ww in range(len(wells_list)):
+        w = wells_list[ww]
+        #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color='C{}'.format(ww+3), alpha=0.5, label=labs[ww] if mm==0 else '')
+        ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww+3), alpha=0.5, label=labs[ww] if mm==0 else '')
+        if m in first_month:
+            cc =  ['darkblue','darkorange','darkgreen']
+            #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color=cc[ww],  linestyle=(0, (2,2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
+            #ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/mass_june[w], color='black', linestyle=(2, (2, 2)), alpha=0.5, label=w if mm==0 else '', zorder=10) 
+            ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww+3), linestyle=(0, (2,2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
+            ax.plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='black', linestyle=(2, (2,2)), alpha=0.75, label=w if mm==0 else '', zorder=10) 
+        # testing
+        if w == 'PLM6':
+            print ('{}  {}/{}  {}'.format(time_list.loc[m,'Date'], inf_[w]['Mass'].sum(), mass_june[w], inf_[w]['Mass'].sum()/mass_june[w]))
+# Cleanup
+ax.set_xlabel('Distance (m)')
+ax.margins(x=0.0)
+ax.set_ylabel('Rel. Number\nof Particles')
+# x-axis
+ax.xaxis.set_major_locator(ticker.MultipleLocator(200))
+ax.xaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.tick_params(axis='x', bottom=True, top=False)
+# yaxis
+ax.set_ylim(0,1.05)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(0.25))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.05))
+# Legend
+leg = ax.legend(loc='upper left', bbox_to_anchor=(0.96, 1.1), frameon=False, handlelength=1, labelspacing=0.25, handletextpad=0.25)
+for lh in leg.legendHandles: 
+    lh.set_alpha(1)
+    lh.set_linewidth(3.0)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+cax.remove()
+plt.savefig('./figures/recharge_loc.soil.png', dpi=300)
+plt.savefig('./figures/recharge_loc.soil.svg', format='svg')
+plt.show()
+
+
+#
+# Hillslope Plot
+#
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
+fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
+ax.plot(dem['X'], dem['Z'], color='black', linewidth=2.0)
+# Plot well Locations
+wells_list = ['X404','X494','X540']
+labs = ['PLM1 soil', 'PLM6 soil', 'Floodplain']
+for i in range(len(wells_list)):
+    w = wells_list[i]
+    xpos = wells.loc[w, 'X']
+    zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
+    ax.scatter(xpos, zpos-10, marker='s', color='C{}'.format(i+3), label=labs[i])
+    #rect = patches.Rectangle((xpos-12, zpos-16), 20, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10, label=labs[i])
+    #ax.add_patch(rect)
+# Cleanup
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Elevation (m)')
+ax.margins(x=0.0)
+# x-axis
+ax.xaxis.set_major_locator(ticker.MultipleLocator(200))
+ax.xaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.tick_params(axis='x', bottom=True, top=False)
+# yaxis
+ax.set_ylim(dem['Z'].min()-50, dem['Z'].max()+10)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
+# Legend
+leg = ax.legend(loc='upper left', bbox_to_anchor=(0.96, 1.1), frameon=False, handlelength=1, labelspacing=0.25, handletextpad=0.25)
+for lh in leg.legendHandles: 
+    lh.set_alpha(1)
+    lh.set_linewidth(3.0)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+cax.remove()
+plt.savefig('./figures/recharge_loc.hillslope.soil.png', dpi=300)
+plt.savefig('./figures/recharge_loc.hillslope.soil.svg', format='svg')
+plt.show()
+
+
+
+
+
+#
+# Hillslope Plot all
+#
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
+fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
+ax.plot(dem['X'], dem['Z'], color='black', linewidth=2.0)
+# Plot well Locations
+wells_list = ['PLM1','PLM7','PLM6','X404','X494','X540']
+labs = ['PLM1','PLM7','PLM6','PLM1 soil', 'PLM6 soil', 'Floodplain']
+for i in range(len(wells_list)):
+    w = wells_list[i]
+    xpos = wells.loc[w, 'X']
+    zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
+    if w in ['PLM1','PLM7','PLM6']:
+        ax.scatter(xpos, zpos-20, marker='s', color='C{}'.format(i), label=labs[i])
+    else:
+        ax.scatter(xpos, zpos-5, marker='s', color='C{}'.format(i), label=labs[i])
+    #rect = patches.Rectangle((xpos-12, zpos-16), 20, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10, label=labs[i])
+    #ax.add_patch(rect)
+# Cleanup
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Elevation (m)')
+ax.margins(x=0.0)
+# x-axis
+ax.xaxis.set_major_locator(ticker.MultipleLocator(200))
+ax.xaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.tick_params(axis='x', bottom=True, top=False)
+# yaxis
+ax.set_ylim(dem['Z'].min()-50, dem['Z'].max()+10)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
+# Legend
+leg = ax.legend(loc='upper left', bbox_to_anchor=(0.96, 1.15), frameon=False, handlelength=1, labelspacing=0.25, handletextpad=0.25)
+for lh in leg.legendHandles: 
+    lh.set_alpha(1)
+    lh.set_linewidth(3.0)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="1.5%", pad=0.05) 
+cax.remove()
+plt.savefig('./figures/recharge_loc.hillslope.comp.png', dpi=300)
+plt.savefig('./figures/recharge_loc.hillslope.comp.svg', format='svg')
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+# Plot through time with velocity angle
+#
 fig, ax = plt.subplots(ncols=1, nrows=2, gridspec_kw={'height_ratios': [1,2]}, figsize=(7,3.5))
 fig.subplots_adjust(right=0.82, top=0.94, hspace=0.005, left=0.15)
 # Plot Velocity Angle
@@ -642,7 +870,7 @@ for i in range(len(wells)):
     w = wells.index[i]
     xpos = wells.loc[w, 'X']
     zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
-    rect = patches.Rectangle((xpos-8, zpos-8), 16, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10)
+    rect = patches.Rectangle((xpos-10, zpos-16), 16, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10)
     ax[1].add_patch(rect)
 # Mangle Colorbar
 divider = make_axes_locatable(ax[1])
@@ -653,35 +881,31 @@ cb.update_ticks()
 # Clean up
 ax[1].set_xlabel('Distance (m)')
 ax[1].set_ylabel('Elevation (m)')
-
 # Add in Recharge Location
 wells_list = ['PLM1','PLM7','PLM6']
-for mm in range(len(dem_dict.keys())):
-    m = list(dem_dict.keys())[mm]
-    dem_ = dem_dict[m]
+for mm in range(len(inf_dict.keys())):
+    m = list(inf_dict.keys())[mm]
+    inf_ = inf_dict[m]
     for ww in range(len(wells_list)):
         w = wells_list[ww]
-        if m != 1681:
-            ax[0].plot(dem_['X'], dem_[w]/dem_[w].max(), color='C{}'.format(ww), alpha=0.5, label=w if mm==0 else '')
-        elif m == 1681:
+        ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww), alpha=0.5, label=w if mm==0 else '')
+        if m in first_month:
             cc =  ['darkblue','darkorange','darkgreen']
-            ax[0].plot(dem_['X'], dem_[w]/dem_[w].max(), color=cc[ww], linestyle=(0, (2, 2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
-            ax[0].plot(dem_['X'], dem_[w]/dem_[w].max(), color='black', linestyle=(2, (2, 2)), alpha=0.5, label=w if mm==0 else '', zorder=10) 
+            ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color=cc[ww], linestyle=(0, (2, 2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
+            ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='black', linestyle=(2, (2, 2)), alpha=0.5, label=w if mm==0 else '', zorder=10) 
 # Cleanup
 ax[0].margins(x=0.0)
 ax[0].set_ylabel('Rel. Number\nof Particles')
 # x-axis
 [ax[i].xaxis.set_major_locator(ticker.MultipleLocator(200)) for i in [0,1]]
 [ax[i].xaxis.set_minor_locator(ticker.MultipleLocator(50)) for i in [0,1]]
-[ax[i].tick_params(axis='x', bottom=True, top=False, length=4, width=1.25) for i in [0,1]]
+[ax[i].tick_params(axis='x', bottom=True, top=False) for i in [0,1]]
 ax[0].set_xticklabels([])
 # yaxis
 ax[0].yaxis.set_major_locator(ticker.MultipleLocator(1.0))
 ax[0].yaxis.set_minor_locator(ticker.MultipleLocator(0.25))
 ax[1].yaxis.set_major_locator(ticker.MultipleLocator(100))
 ax[1].yaxis.set_minor_locator(ticker.MultipleLocator(25))
-
-
 # Legend
 leg = ax[0].legend(loc='upper left', bbox_to_anchor=(0.98, 1.1), frameon=False)
 for lh in leg.legendHandles: 
@@ -690,11 +914,9 @@ for lh in leg.legendHandles:
 divider = make_axes_locatable(ax[0])
 cax = divider.append_axes("right", size="1.5%", pad=0.05) 
 cax.remove()
-plt.savefig('./figures/recharge_loc_ens.png', dpi=300)
-plt.savefig('./figures/recharge_loc_ens.svg', format='svg')
+#plt.savefig('./figures/recharge_loc_ens.png', dpi=300)
+#plt.savefig('./figures/recharge_loc_ens.svg', format='svg')
 plt.show()
-
-
 
 
 

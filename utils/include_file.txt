@@ -1,5 +1,6 @@
 wy_2017_2021/*01683.pfb*
 wy_2017_2021/*porosity*
+wy_2017_2021/*perm*
 wy_2017_2021/*specific_storage*
 
 ecoslim_2017_2021/*00001683*

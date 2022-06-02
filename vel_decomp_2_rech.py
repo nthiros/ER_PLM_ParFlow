@@ -43,6 +43,15 @@ def read_pfb(fname):
 
 
 
+def read_pfb(fname):
+    '''Read in a .pfb file'''
+    pfdata = PFData(fname)
+    pfdata.loadHeader()
+    pfdata.loadData()
+    return pfdata.copyDataArray()
+
+
+
 class hydro_utils():
     def __init__(self, dz_scale):
         # define file names
@@ -69,6 +78,9 @@ class hydro_utils():
         fn_porosity = os.path.join(directory, '{}.out.{}.pfb'.format(header,'porosity'))
         self.porosity = read_pfb(fn_porosity)
        
+        fn_K = os.path.join(directory, '{}.out.{}.pfb'.format(header,'perm_x'))
+        self.K = read_pfb(fn_K) 
+       
         fn_et = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'evaptrans',timestep))
         self.et = read_pfb(fn_et)
  
@@ -94,11 +106,22 @@ class hydro_utils():
     def pull_et(self):
          return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
     
+    def pull_bedrock_ind(self):
+        '''Find index where porosity changes, take this as bedrock. Soil is +1'''
+        #pdb.set_trace()
+        self.bedrock_ind = np.where(self.porosity[:,0,0]==self.porosity[:,0,0].min())[0].max()
+    
     def vel_bedrock_layer(self, bedrock_mbls):
-        #Z  = np.flip(self.dz_scale).cumsum() # depth below land surface for each layer
+        self.pull_bedrock_ind()
+        
+        # Testing....
+        Z  = np.flip(self.dz_scale).cumsum() # depth below land surface for each layer
         Z_ = self.dz_scale.sum() - self.dz_scale.cumsum() + dz_scale/2 # cell-centered z value, starting at base of the domain then going up
-        bedrock_ind  = abs(Z_ - bedrock_mbls).argmin() # index of first bedrock layer
-
+        bedrock_ind_  = abs(Z_ - bedrock_mbls).argmin() # index of first bedrock layer
+        
+        if bedrock_ind_ != self.bedrock_ind:
+            print ('bedrock depth not matching porosity')
+        
         # Velocity field shapes do not acutally match domain shape
         # need to clip, not positive on clipping first or last index
         #vx = read_pfb(vx_f)[:,:,1:] #[:,:,:-1]
@@ -106,9 +129,8 @@ class hydro_utils():
         #vz = read_pfb(vz_f)[1:,:,:]
 
         # Velocity at first bedrock layer
-        Vx_bed = self.velx[bedrock_ind,0,:]
-        Vz_bed = self.velz[bedrock_ind,0,:]
-        
+        Vx_bed = self.velx[self.bedrock_ind,0,:]
+        Vz_bed = self.velz[self.bedrock_ind,0,:]
         
         # Calculate velocity component that is below the land surface slope
         #Vz_bed_ = Vz_bed - np.tan(-1*slope*np.pi/180) * Vx_bed
@@ -116,12 +138,13 @@ class hydro_utils():
 
     def vel_soil_layer(self, bedrock_mbls):
         #Z  = np.flip(self.dz_scale).cumsum() # depth below land surface for each layer
-        Z_ = self.dz_scale.sum() - self.dz_scale.cumsum() + dz_scale/2 # cell-centered z value, starting at base of the domain then going up
-        bedrock_ind  = abs(Z_ - bedrock_mbls).argmin() # index of first bedrock layer
+        #Z_ = self.dz_scale.sum() - self.dz_scale.cumsum() + dz_scale/2 # cell-centered z value, starting at base of the domain then going up
+        #bedrock_ind  = abs(Z_ - bedrock_mbls).argmin() # index of first bedrock layer
 
+        #pdb.set_trace()
         # Velocity at first bedrock layer
-        Vx_bed = self.velx[bedrock_ind+1,0,:]
-        Vz_bed = self.velz[bedrock_ind+1,0,:]
+        Vx_bed = self.velx[self.bedrock_ind+1,0,:]
+        Vz_bed = self.velz[self.bedrock_ind+1,0,:]
 
         return  [Vx_bed, Vz_bed]
 

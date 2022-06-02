@@ -29,7 +29,9 @@ plt.rcParams['font.size'] = 14
 
 
 #---------------------------
+#
 # Define some variables
+#
 #---------------------------
 
 nsteps = 1794
@@ -43,16 +45,22 @@ if not os.path.exists(fpath):
     os.makedirs(fpath)
 
 
+
+#---------------------------
+#
+# Read in data
+#
+#---------------------------
+
 #
 # Read in pickles with all data 
 #
-# Generate using et_to_pickle.py
+# Generated using 'et_to_pickle.py'
 clm_out = pd.read_pickle('parflow_out/clm_out_dict.pk') # this is from the CLM output files
 #et_out  = pd.read_pickle('parflow_out/et_out_dict.pk') # This one does not work as well -- not sure why
-# Generate using vel_decomp_2_rech.py
-pf = pd.read_pickle('parflow_out/pf_out_dict.pk') # this is from parflow files using pftools
+# Generated using 'vel_decomp_2_rech.py'
+pf = pd.read_pickle('parflow_out/pf_out_dict.pk')       # this is from parflow files using pftools
 et_out = pf['et']
-
 
 
 #
@@ -67,7 +75,6 @@ topo = np.loadtxt('./Perm_Modeling/elevation.sa', skiprows=1)
 veg = pd.read_csv('./clm_inputs/drv_vegm.dat', skiprows=2, header=None, sep=' ', index_col=0)  
 header = ['y','lat','long','sand','clay','color'] + list(np.arange(1,19))
 veg.columns = header
-
 # Array with the plant type index
 v_type = veg[np.arange(1,19)]
 vind = []
@@ -77,8 +84,6 @@ for i in range(1, len(v_type)+1):
     # test how many indices there are
     vnum.append((v_type.loc[i,:] > 0.0).sum())
     vind.append(int(v_ind.max()))
-
-
 
 
 #
@@ -108,13 +113,10 @@ wy_20_inds = wy_map_et[wy_map_et[:,1] == 2020][:,0]
 wy_21_inds = wy_map_et[wy_map_et[:,1] == 2021][:,0]
 
 
-
-
 #
 # MET Forcing Data -- note, this is at 3 hours
 # Units in parflow manual pg. 136
 #
-
 fmet      = './MET/met.2017-2021.3hr.txt'
 
 met       = pd.read_csv(fmet, delim_whitespace=True, names=['rad_s','rad_l','prcp','temp','wnd_u','wnd_v','press','vap'])
@@ -142,7 +144,6 @@ prcp_sumy = prcp_summ.groupby(prcp_summ['wy']).sum()
 prcp_sumy_cs  = prcp_summ.groupby(prcp_summ['wy']).cumsum()
 prcp_sumy_cs['wy'] = prcp_summ['wy']
 
-
 # cumulative sum using daily precip sums
 prcp_sumd = pd.DataFrame((met['prcp']*3600*3).groupby(pd.Grouper(freq='D')).sum())
 wy_  = [np.where((prcp_sumd.index > '{}-09-30'.format(i-1)) & (prcp_sumd.index < '{}-10-01'.format(i)), True, False) for i in yrs]  
@@ -155,15 +156,13 @@ prcp_sumy_cs_['wy'] = prcp_sumd['wy']
 
 
 
-
-
-
 #
 # Calculate the sum of the ET over each domain column
 # ET at land surface over the full hillslope
 #
 et_mhr   = np.array([et_out[i].sum(axis=0) for i in range(1,len(et_out)+1)])[:,0,:]
 et_mmday = et_mhr*1000*24/3 
+#et_mmday = et_mhr*1000/3 
 
 # convert to dict to make life easier
 et_df    = pd.DataFrame(et_mmday)
@@ -172,8 +171,7 @@ et_df.index = dates
 wy_daily_ = [np.where((et_df.index > '{}-09-30'.format(i-1)) & (et_df.index < '{}-10-01'.format(i)), True, False) for i in yrs]  
 wy_daily  = np.array([wy_daily_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
 
-et_df.insert(loc=0, column='wy', value=wy_daily)
-
+et_df.insert(loc=0, column='wy', value=wy_daily) # ! et_df is the et from the parflow.pfb files NOT the clm output files
 
 
 
@@ -193,13 +191,10 @@ month_map  = {1:'Oct',2:'Nov',3:'Dec',4:'Jan',5:'Feb',6:'Mar',7:'Apr',8:'May',9:
 months     = list(month_map.values())
 months_num = np.array(list(month_map.keys()))
 
-
 days_ = prcp_sumd[prcp_sumd['wy']==yr].index
 first_month = [(days_.month==i).argmax() for i in [10,11,12,1,2,3,4,5,6,7,8,9]]
 
-
 wy_inds_helper = {2017:wy_17_inds,2018:wy_18_inds,2019:wy_19_inds,2020:wy_20_inds,2021:wy_21_inds}
-
 
 pull_wy     = lambda df, wy: pd.DataFrame(df[df['wy']==wy])
 pull_prcp   = lambda df, wy: pd.DataFrame(df[df['wy']==wy]['prcp'])
@@ -208,8 +203,6 @@ pull_infil  = lambda wy: pd.DataFrame([(clm_out[i]['qflx_infl']) for i in wy_ind
 pull_swe    = lambda wy: pd.DataFrame([(clm_out[i]['swe_out']) for i in wy_inds_helper[wy]]).T
 pull_grndT  = lambda wy: pd.DataFrame([(clm_out[i]['t_grnd']-273.15) for i in wy_inds_helper[wy]]).T
 pull_soilT  = lambda wy: pd.DataFrame([(clm_out[i]['t_soil_0']-273.15) for i in wy_inds_helper[wy]]).T
-
-
 
 
 
@@ -236,7 +229,6 @@ ax.set_ylim(0,150)
 ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
 ax.tick_params(axis='y', which='both', right=True)
 ax.grid()
-
 ax.set_ylabel('Monthly\nPrecip. (mm)')
 
 # cumulative precipitation on new axis
@@ -258,12 +250,29 @@ ax.grid()
 
 ax.set_ylabel('Annual\nCumulative (mm)')
 ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-
-#fig.tight_layout()
 plt.savefig(os.path.join(fpath, 'precip.png'),dpi=300)
 plt.show()
 
 
+
+
+
+
+# Compare ET 
+fig, ax = plt.subplots()
+#plt.plot(drng, pull_et(2019).mean(axis=0)*86400/3)
+plt.plot(drng, pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1)/3)
+#plt.plot(drng, pull_wy(et_df, 2019).iloc[:,200])
+
+plt.plot(drng, pull_infil(2019).mean(axis=0)*86400, ls='--')
+
+ax.axhline(y=0.0, linestyle='--', color='black')
+
+ax.set_xlim(0,366)
+ax.set_xticks(first_month)
+ax.set_xticklabels(labels=months)
+ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
+plt.show()
 
 
 
@@ -280,54 +289,16 @@ drng = np.arange(len(wy_inds_helper[yr]))
 #
 # CLM ET
 #
-et1 = pull_et(2019).mean(axis=0)*86400 / 3
-et2 = pull_et(2020).mean(axis=0)*86400 / 3
+# CLM binary output
+#et1 = pull_et(2019).mean(axis=0)*86400 / 3 
+#et2 = pull_et(2020).mean(axis=0)*86400 / 3 
 
-et1 = pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1)
+# parflow.pfb files and pftools
+et1 = pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1) 
 et2 = pull_wy(et_df, 2020).iloc[:,1:].mean(axis=1)
 
 ppd1 = pull_prcp(prcp_sumd,2019)['prcp'].to_numpy().cumsum()
 ppd2 = pull_prcp(prcp_sumd,2020)['prcp'].to_numpy().cumsum()
-
-### 
-# Plot
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,4))
-fig.subplots_adjust(bottom=0.14, top=0.92, left=0.2, right=0.96, hspace=0.45)
-# ET
-ax = axes[1]
-ax.plot(drng, et1, color='C0', label='WY2019')
-ax.plot(drng, et2, color='C1', label='WY2020')
-# Cleanup
-ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax.set_ylabel('Daily ET\n(mm)')
-ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# Cumulative Sums
-ax = axes[0]
-# Precip
-ax.plot(np.arange(len(ppd1)), ppd1, color='C0', linestyle='--', lw=1.5, label='Precip.')
-ax.plot(np.arange(len(ppd2)), ppd2, color='C1', linestyle='--', lw=1.5)
-# ET
-ax.plot(np.arange(len(et1)), (et1).cumsum(), color='C0', lw=2.0, label='ET')
-ax.plot(np.arange(len(et2)), (et2).cumsum(), color='C1', lw=2.0)
-# Cleanup
-ax.yaxis.set_major_locator(ticker.MultipleLocator(150))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
-ax.set_ylabel('Annual\nCumulative (mm)')
-ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# 
-[axes[i].set_xlim(0,366) for i in [0,1]]
-[axes[i].set_xticks(first_month) for i in [0,1]]
-[axes[i].set_xticklabels(labels=months) for i in [0,1]]
-[axes[i].tick_params(axis='x', top=True, labelrotation=45, pad=0.2) for i in [0,1]]
-[axes[i].tick_params(axis='y', which='both', right=True) for i in [0,1]]
-[axes[i].grid() for i in [0,1]]
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_et_temporal.png'),dpi=300)
-plt.show()
-
-
-
-
 
 #
 # CLM infiltration
@@ -335,86 +306,11 @@ plt.show()
 inf1 = pull_infil(2019).mean(axis=0)*86400 / 3
 inf2 = pull_infil(2020).mean(axis=0)*86400 / 3
 
-###
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,4))
-fig.subplots_adjust(bottom=0.14, top=0.92, left=0.2, right=0.96, hspace=0.45)
-# Infiltration
-ax = axes[1]
-ax.plot(np.arange(len(inf1)), inf1, color='C0', label='WY2019')
-ax.plot(np.arange(len(inf2)), inf2, color='C1', label='WY2020')
-# Cleanup
-ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax.set_ylabel('Daily\nInfiltration (mm)')
-ax.legend(loc='upper left',handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# Cumulative Sum
-ax = axes[0]
-# Precip
-ax.plot(np.arange(len(ppd1)), ppd1, color='C0', linestyle='--', lw=1.5, label='Precip.')
-ax.plot(np.arange(len(ppd2)), ppd2, color='C1', linestyle='--', lw=1.5)
-# Infiltration
-ax.plot(np.arange(len(inf1)), inf1.cumsum(), color='C0', lw=2.0, label='Infil.')
-ax.plot(np.arange(len(inf2)), inf2.cumsum(), color='C1', lw=2.0)
-# Cleanup
-ax.yaxis.set_major_locator(ticker.MultipleLocator(200))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(100))
-ax.set_ylabel('Annual\nCumulative (mm)')
-ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-#
-[axes[i].set_xlim(0,366) for i in [0,1]]
-[axes[i].set_xticks(first_month) for i in [0,1]]
-[axes[i].set_xticklabels(labels=months) for i in [0,1]]
-[axes[i].tick_params(axis='x', top=True, labelrotation=45, pad=0.2) for i in [0,1]]
-[axes[i].tick_params(axis='y', which='both', right=True) for i in [0,1]]
-[axes[i].grid() for i in [0,1]]
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_infil_temporal.png'),dpi=300)
-plt.show()
-
-
-
-
 #
 # CLM rech = infil. - ET
 #
-rech1 = inf1.to_numpy() - et1.to_numpy()
-rech2 = inf2.to_numpy() - et2.to_numpy()
-
-###
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,4))
-fig.subplots_adjust(bottom=0.14, top=0.92, left=0.2, right=0.96, hspace=0.45)
-# Recharge
-ax = axes[1]
-ax.plot(np.arange(len(rech1)), rech1, color='C0', label='WY2019')
-ax.plot(np.arange(len(rech2)), rech2, color='C1', label='WY2020')
-# Cleanup
-ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax.set_ylabel('Daily\nRecharge (mm)')
-ax.legend(loc='upper left', handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# Cumulative Sum 
-ax = axes[0]
-# Precip
-ax.plot(np.arange(len(ppd1)), ppd1, color='C0', linestyle='--', lw=1.5, label='Precip.')
-ax.plot(np.arange(len(ppd2)), ppd2, color='C1', linestyle='--', lw=1.5)
-# Recharge
-ax.plot(np.arange(len(rech1)), rech1.cumsum(), color='C0', lw=2.0, label='Recharge')
-ax.plot(np.arange(len(rech2)), rech2.cumsum(), color='C1', lw=2.0)
-# Cleanup
-ax.yaxis.set_major_locator(ticker.MultipleLocator(200))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(100))
-ax.set_ylabel('Annual\nCumulative (mm)')
-leg = ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# 
-[axes[i].set_xlim(0,366) for i in [0,1]]
-[axes[i].set_xticks(first_month) for i in [0,1]]
-[axes[i].set_xticklabels(labels=months) for i in [0,1]]
-[axes[i].tick_params(axis='x', top=True, labelrotation=45, pad=0.2) for i in [0,1]]
-[axes[i].tick_params(axis='y', which='both', right=True) for i in [0,1]]
-[axes[i].grid() for i in [0,1]]
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_rech_temporal.png'),dpi=300)
-plt.show()
-
-
+rech1 = 1 * (inf1.to_numpy() - et1.to_numpy())
+rech2 = 1 * (inf2.to_numpy() - et2.to_numpy())
 
 
 #
@@ -430,72 +326,27 @@ def accum_swe(wy):
         swe_accum_list.append(swe_accum)
     return swe_accum_list
         
-
-
 swe1 = pull_swe(2019).mean(axis=0)
 swe2 = pull_swe(2020).mean(axis=0)
 
 swe1a = accum_swe(2019)
 swe2a = accum_swe(2020)
 
-###
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,4))
-fig.subplots_adjust(bottom=0.14, top=0.92, left=0.2, right=0.96, hspace=0.45)
-ax = axes[1]
-# SWE
-ax.plot(np.arange(len(swe1)), swe1, color='C0', label='WY2019')
-ax.plot(np.arange(len(swe2)), swe2, color='C1', label='WY2020')
-# Precip
-#ax.plot(pull_wy(prcp_sumd,2019)['prcp'].to_numpy())
-# Cleanup
-ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
-ax.set_ylabel('SWE (mm)')
-ax.legend(loc='upper left', handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-# Cumulative Sum 
-ax = axes[0]
-# Precip
-ax.plot(np.arange(len(ppd1)), ppd1, color='C0', linestyle='--', lw=1.5, label='Precip.')
-ax.plot(np.arange(len(ppd2)), ppd2, color='C1', linestyle='--', lw=1.5)
-# SWE
-ax.plot(np.arange(len(swe1a)), swe1a, color='C0', lw=2.0, label='SWE')
-ax.plot(np.arange(len(swe2a)), swe2a, color='C1', lw=2.0)
-# Cleanup
-ax.yaxis.set_major_locator(ticker.MultipleLocator(150))
-ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
-ax.set_ylabel('Annual\nCumulative (mm)')
-leg = ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-#
-[axes[i].set_xlim(0,366) for i in [0,1]]
-[axes[i].set_xticks(first_month) for i in [0,1]]
-[axes[i].set_xticklabels(labels=months) for i in [0,1]]
-[axes[i].tick_params(axis='x', top=True, labelrotation=45, pad=0.2) for i in [0,1]]
-[axes[i].tick_params(axis='y', which='both', right=True) for i in [0,1]]
-[axes[i].grid() for i in [0,1]]
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_swe_temporal.png'),dpi=300)
-plt.show()
-
-
-
-
 
 
 #
 # Stacked Daily Values
 #
-
 prcp_daily_2019 = pull_prcp(prcp_sumd, 2019)
 prcp_daily_2020 = pull_prcp(prcp_sumd, 2020)
 
-
 vlist1  = [prcp_daily_2019, swe1, et1, inf1, rech1]
 vlist2  = [prcp_daily_2020, swe2, et2, inf2, rech2]
-vlist1_ = ['Precipitation\n(mm/day)', 'SWE (mm)', 'ET\n(mm/day)', 'Infiltration\n(mm/day)', 'Recharge\n(mm/day)']
+vlist1_ = ['Precipitation\n(mm/day)', 'SWE\n(mm)', 'ET\n(mm/day)', 'Infiltration\n(mm/day)', 'Recharge\n(mm/day)']
 
 
-fig, axes = plt.subplots(nrows=len(vlist1), ncols=1, figsize=(5,7))
-fig.subplots_adjust(bottom=0.08, top=0.93, left=0.2, right=0.98, hspace=0.65)
+fig, axes = plt.subplots(nrows=len(vlist1), ncols=1, figsize=(5,6))
+fig.subplots_adjust(bottom=0.09, top=0.92, left=0.2, right=0.98, hspace=0.2)
 # Plot each timeseries as own subuplot
 for i in range(len(vlist1)):
     ax = axes[i]
@@ -504,13 +355,19 @@ for i in range(len(vlist1)):
     # Cleanup
     ax.set_xlim(0,366)
     ax.set_xticks(first_month)
-    ax.set_xticklabels(labels=months)
-    ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
+    if i == len(vlist1)-1:
+        ax.set_xticklabels(labels=months)
+        ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
+    else:
+        ax.set_xticklabels(labels=months)
+        ax.tick_params(axis='x', top=True, labelbottom=False, pad=0.001)
+    axes[0].tick_params(axis='x', top=True, labelrotation=45, pad=0.001, labeltop=True)
     ax.tick_params(axis='y', which='both', right=True)
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
     ax.set_ylabel(vlist1_[i])
     ax.grid()
-axes[0].legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.27), handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
+#axes[0].legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.27), handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
+axes[1].legend(loc='upper right', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)
 #fig.tight_layout()
 plt.savefig(os.path.join(fpath, 'clm_daily_stack.png'),dpi=300)
 plt.show()
@@ -522,52 +379,39 @@ plt.show()
 #
 # Stacked Annual Values
 #
-
-#vlist1  = [prcp_daily_2019.cumsum(), swe1a, et1.cumsum(), inf1.cumsum(), rech1.cumsum()]
-#vlist2  = [prcp_daily_2020.cumsum(), swe2a, et2.cumsum(), inf2.cumsum(), rech2.cumsum()]
-#vlist1_ = ['Precipitation\n(mm/year)', 'SWE (mm)', 'ET\n(mm/year)', 'Infiltration\n(mm/year)', 'Recharge\n(mm/year)']
-
-
 vlist1  = [swe1a, et1.cumsum(), inf1.cumsum(), rech1.cumsum()]
 vlist2  = [swe2a, et2.cumsum(), inf2.cumsum(), rech2.cumsum()]
-vlist1_ = ['SWE (mm)', 'ET\n(mm/year)', 'Infiltration\n(mm/year)', 'Recharge\n(mm/year)']
+vlist1_ = ['SWE\n(mm/year)', 'ET\n(mm/year)', 'Infiltration\n(mm/year)', 'Recharge\n(mm/year)']
 
-fig, axes = plt.subplots(nrows=len(vlist1)+1, ncols=1, figsize=(5,7))
-fig.subplots_adjust(bottom=0.08, top=0.93, left=0.2, right=0.98, hspace=0.65)
-# Monthly Precip on Top
-ax = axes[0]
-ax.bar(months_num-0.1, pp1['prcp'].to_numpy(), width=0.18, color='C0', fill='C0', hatch=None,  label='WY2019')
-ax.bar(months_num+0.1, pp2['prcp'].to_numpy(), width=0.18, color='C1', fill='C1', hatch=None, label='WY2020')
-ax.set_xlim([0.5, 12.5])
-ax.set_xticks(list(months_num))
-ax.set_xticklabels(labels=months)
-ax.tick_params(axis='x', top=False, labelrotation=45, pad=0.001)
-ax.set_ylim(0,150)
-ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax.tick_params(axis='y', which='both', right=True)
-ax.grid()
-ax.set_ylabel('Monthly\nPrecip. (mm)')
-
+fig, axes = plt.subplots(nrows=len(vlist1), ncols=1, figsize=(5,5.5))
+#fig.subplots_adjust(bottom=0.08, top=0.93, left=0.2, right=0.98, hspace=0.65)
+fig.subplots_adjust(bottom=0.09, top=0.90, left=0.2, right=0.98, hspace=0.2)
 # Plot each timeseries as own subuplot
 for i in range(len(vlist1)):
-    ax = axes[i+1]
-    ax.plot(np.arange(len(vlist1[i])), vlist1[i], lw=2.0, color='C0')#, label='WY2019' if i==0 else '')
-    ax.plot(np.arange(len(vlist2[i])), vlist2[i], lw=2.0, color='C1')#, label='WY2020' if i==0 else '')
+    ax = axes[i]
+    ax.plot(np.arange(len(vlist1[i])), vlist1[i], lw=2.0, color='C0', label='WY2019' if i==0 else '')
+    ax.plot(np.arange(len(vlist2[i])), vlist2[i], lw=2.0, color='C1', label='WY2020' if i==0 else '')
     # Add Precipitation
-    ax.plot(np.arange(len(prcp_daily_2019.cumsum())), prcp_daily_2019.cumsum(), lw=1.5, ls='--', color='C0', label='Precip.')
+    ax.plot(np.arange(len(prcp_daily_2019.cumsum())), prcp_daily_2019.cumsum(), lw=1.5, ls='--', color='C0', label='Precip.' if i==1 else '')
     ax.plot(np.arange(len(prcp_daily_2020.cumsum())), prcp_daily_2020.cumsum(), lw=1.5, ls='--', color='C1')
     # Cleanup
     ax.set_xlim(0,366)
     ax.set_xticks(first_month)
-    ax.set_xticklabels(labels=months)
-    ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
+    if i == len(vlist1)-1:
+        ax.set_xticklabels(labels=months)
+        ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
+    else:
+        ax.set_xticklabels(labels=months)
+        ax.tick_params(axis='x', top=True, labelbottom=False, pad=0.001)
+    axes[0].tick_params(axis='x', top=True, labelrotation=45, pad=0.001, labeltop=True)
     ax.tick_params(axis='y', which='both', right=True)
     ax.yaxis.set_major_locator(ticker.MultipleLocator(200))
     ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
     ax.set_ylabel(vlist1_[i])
     ax.grid()
-axes[0].legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.27), handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-axes[1].legend(loc='upper left', handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
+#axes[0].legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.27), handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
+axes[0].legend(loc='upper left', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)
+axes[1].legend(loc='upper left', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)
 #fig.tight_layout()
 plt.savefig(os.path.join(fpath, 'clm_annual_stack.png'),dpi=300)
 plt.show()
@@ -575,10 +419,65 @@ plt.show()
 
 
 
+#
+# Plots that Integrate over both space and time
+#
 
+et_ = pull_et(yr).to_numpy().ravel() * 86400/3
+print (et_.mean())
 
+fig, ax = plt.subplots(figsize=(3.5, 2.5))
+fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
+ax.hist(x=et_, bins=30, density=True)
+ax.set_ylabel('Density')
+ax.set_xlabel('ET (mm/day)')
+ax.minorticks_on()
+ax.grid()
+#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.show()
 
+#
 
+#et_ = pull_wy(et_df, 2019).iloc[:,1:].to_numpy().ravel()
+#print (et_.mean())
+
+fig, ax = plt.subplots(figsize=(3.5, 2.5))
+fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
+ax.hist(x=et_, bins=30, density=True)
+ax.set_ylabel('Density')
+ax.set_xlabel('ET (mm/day)')
+ax.minorticks_on()
+ax.grid()
+#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.show()
+
+#
+
+inf_ = pull_infil(yr).to_numpy().ravel()*86400 / 3
+
+fig, ax = plt.subplots(figsize=(3.5, 2.5))
+fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
+ax.hist(x=inf_, bins=30, density=True)
+ax.set_ylabel('Density')
+ax.set_xlabel('Infiltration (mm/day)')
+ax.minorticks_on()
+ax.grid()
+#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.show()
+
+#
+
+rech_ = inf_ - et_
+
+fig, ax = plt.subplots(figsize=(3.5, 2.5))
+fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
+ax.hist(x=rech_, bins=30, density=True)
+ax.set_ylabel('Density')
+ax.set_xlabel('Recharge (mm/day)')
+ax.minorticks_on()
+ax.grid()
+#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.show()
 
 
 
@@ -605,10 +504,12 @@ cmap_cust = matplotlib.colors.LinearSegmentedColormap.from_list("mycmap", colors
 #    
 # Timeseries at Discrete Points
 #
-x_pnts = [100, 300, 400, 500, 540]    
-#cc = plt.cm.viridis(np.linspace(0,1,len(x_pnts)))
+#x_pnts = [100, 300, 400, 500, 540]   
+x_pnts = [404, 494, 540]    
+cc = plt.cm.viridis(np.linspace(0,1,len(x_pnts)))
+cc = ['C3','C4','C5']
 #cc = plt.cm.coolwarm(np.linspace(0,1,len(x_pnts)))
-cc = plt.cm.turbo(np.linspace(0,1,len(x_pnts)))
+#cc = plt.cm.turbo(np.linspace(0,1,len(x_pnts)))
 
 
 # Plot the positions
@@ -637,44 +538,10 @@ plt.show()
 et = pull_et(yr)*86400 / 3
 et.columns = np.arange(365)
 
-dd = et.copy()
-
 # Testing with parflow ET, rather than CLM ET
-et_ = pull_wy(et_df, yr).iloc[:,1:]
-et_.index = np.arange(365)
-et_ = et_.T
-
-dd = et_.copy()
-
-
-
-"""
-#
-# Monthly Plots
-#
-fig, axes = plt.subplots(nrows=6,ncols=2, figsize=(6,10))
-fig.subplots_adjust(top=0.96, bottom=0.10, right=0.98, left=0.2, hspace=0.2, wspace=0.40)
-for i in range(len(first_month)):
-    r,c = i%6,i//6
-    ax = axes[r,c]
-    ii = first_month[i]
-    ax.plot(xrng, dd.loc[:,ii], lw=1.0, alpha=1.0, zorder=7, color='black', label=months[i])
-    ax.text(0.05, 0.85, '{}'.format(months[i]), horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    # Plot the full ensemble also?
-    ax.tick_params(axis='y', rotation=45, pad=0.1)
-    if r != 5:
-        ax.tick_params(axis='x', labelbottom=False)
-    ax.minorticks_on()
-fig.text(0.55, 0.04, 'Distance (m)', ha='center')
-fig.text(0.04, 0.5, 'ET (mm/day)', va='center', rotation='vertical')
-fig.text(0.55, 0.97, 'WY{}'.format(yr), ha='center')
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_et_spat_mn.png'),dpi=300)
-plt.show()
-"""
-    
-    
-
+#et = pull_wy(et_df, yr).iloc[:,1:]
+#et.index = np.arange(365)
+#et = et.T
 
 
 
@@ -686,36 +553,6 @@ plt.show()
 inf = pull_infil(yr)*86400 / 3
 inf.columns = np.arange(365)
 
-dd = inf.copy()
-
-
-"""
-#
-# Monthly Plots
-#
-fig, axes = plt.subplots(nrows=6,ncols=2, figsize=(6,10))
-fig.subplots_adjust(top=0.96, bottom=0.10, right=0.98, left=0.2, hspace=0.2, wspace=0.40)
-for i in range(len(first_month)):
-    r,c = i%6,i//6
-    ax = axes[r,c]
-    ii = first_month[i]
-    ax.plot(xrng, dd.loc[:,ii], lw=1.0, alpha=1.0, zorder=7, color='black', label=months[i])
-    ax.text(0.05, 0.15, '{}-01'.format(months[i]), horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    ax.tick_params(axis='y', rotation=45, pad=0.1)
-    if r != 5:
-        ax.tick_params(axis='x', labelbottom=False)
-    ax.minorticks_on()
-fig.text(0.55, 0.04, 'Distance (m)', ha='center')
-fig.text(0.04, 0.5,  'Daily Infil (mm/day)', va='center', rotation='vertical')
-fig.text(0.55, 0.97, 'WY{}'.format(yr), ha='center')
-plt.savefig(os.path.join(fpath, 'clm_infil_spat_mn.png'),dpi=300)
-#fig.tight_layout()
-plt.show()
-"""
-  
-
-
-
 
 #--------------------------------------------------------
 #
@@ -725,18 +562,9 @@ plt.show()
 inf = pull_infil(yr)*86400/3
 inf.columns = np.arange(365)
 
-et = pull_et(yr)*86400/3
-et.columns = np.arange(365)
-
 rech = inf - et
 
-dd = rech.copy()
 
-
-
-
-
-    
 #--------------------------------------------------------
 #
 # SWE
@@ -745,39 +573,8 @@ dd = rech.copy()
 swe = pull_swe(yr)
 swe.columns = np.arange(365)
 
-dd = swe.copy()
-
 atemp     = pull_wy(met, yr)['temp'].groupby(pd.Grouper(freq='D')).mean()- 273.15
 atemp_max = pull_wy(met, yr)['temp'].groupby(pd.Grouper(freq='D')).max() - 273.15
-
-
-"""
-#
-# Monthly Plots
-#
-fig, axes = plt.subplots(nrows=6,ncols=2, figsize=(6,10))
-fig.subplots_adjust(top=0.96, bottom=0.10, right=0.98, left=0.2, hspace=0.2, wspace=0.40)
-for i in range(len(first_month)):
-    r,c = i%6,i//6
-    ax = axes[r,c]
-    ii = first_month[i]
-    ax.plot(xrng, dd.loc[:,ii], lw=1.0, alpha=1.0, zorder=7, color='black', label=months[i])
-    ax.text(0.05, 0.30, '{}-01'.format(months[i]), horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    ax.tick_params(axis='y', rotation=45, pad=0.1)
-    if r != 5:
-        ax.tick_params(axis='x', labelbottom=False)
-    ax.minorticks_on()
-fig.text(0.55, 0.04, 'Distance (m)', ha='center')
-fig.text(0.04, 0.5, 'Daily SWE (mm)', va='center', rotation='vertical')
-fig.text(0.55, 0.97, 'WY{}'.format(yr), ha='center')
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_swe_spat_mn.png'),dpi=300)
-plt.show()
-"""
-
-
-
-
 
 
 #--------------------------------------------------------
@@ -785,40 +582,8 @@ plt.show()
 # Ground Temperature
 #
 #--------------------------------------------------------
-
 gtemp = pull_grndT(yr)
 gtemp.columns = np.arange(365)
-
-dd = gtemp.copy()
-
-
-"""
-#
-# Monthly Plots
-#
-fig, axes = plt.subplots(nrows=6,ncols=2, figsize=(6,10))
-fig.subplots_adjust(top=0.96, bottom=0.10, right=0.98, left=0.2, hspace=0.2, wspace=0.40)
-for i in range(len(first_month)):
-    r,c = i%6,i//6
-    ax = axes[r,c]
-    ii = first_month[i]
-    ax.plot(xrng, dd.loc[:,ii], lw=1.0, alpha=1.0, zorder=7, color='black', label=months[i])
-    ax.text(0.05, 0.30, '{}-01'.format(months[i]), horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    ax.tick_params(axis='y', rotation=45, pad=0.1)
-    if r != 5:
-        ax.tick_params(axis='x', labelbottom=False)
-    ax.minorticks_on()
-fig.text(0.55, 0.04, 'Distance (m)', ha='center')
-fig.text(0.04, 0.5, 'Daily Ground Temp (C)', va='center', rotation='vertical')
-fig.text(0.55, 0.97, 'WY{}'.format(yr), ha='center')
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_gtemp_spat_mn.png'),dpi=300)
-plt.show()
-"""
-
-
-
-
 
 
 #--------------------------------------------------------
@@ -829,41 +594,10 @@ plt.show()
 stemp = pull_soilT(yr)
 stemp.columns = np.arange(365)
 
-dd = stemp.copy()
-
-"""
-#
-# Monthly Plots
-#
-fig, axes = plt.subplots(nrows=6,ncols=2, figsize=(6,10))
-fig.subplots_adjust(top=0.96, bottom=0.10, right=0.98, left=0.2, hspace=0.2, wspace=0.40)
-for i in range(len(first_month)):
-    r,c = i%6,i//6
-    ax = axes[r,c]
-    ii = first_month[i]
-    ax.plot(xrng, dd.loc[:,ii], lw=1.0, alpha=1.0, zorder=7, color='black', label=months[i])
-    ax.text(0.05, 0.30, '{}-01'.format(months[i]), horizontalalignment='left', verticalalignment='center', transform=ax.transAxes)
-    ax.tick_params(axis='y', rotation=45, pad=0.1)
-    if r != 5:
-        ax.tick_params(axis='x', labelbottom=False)
-    ax.minorticks_on()
-fig.text(0.55, 0.04, 'Distance (m)', ha='center')
-fig.text(0.04, 0.5, 'Daily Soil Temp (C)', va='center', rotation='vertical')
-fig.text(0.55, 0.97, 'WY{}'.format(yr), ha='center')
-#fig.tight_layout()
-plt.savefig(os.path.join(fpath, 'clm_stemp_spat_mn.png'),dpi=300)
-plt.show()
-"""
 
 
-
-
-
-
-
-
-
-
+#-----------------------------------------------------------
+#-----------------------------------------------------------
 
 #
 # Daily Stacked Spatial Plots -- Round 1
@@ -879,13 +613,13 @@ for i in range(len(vlist)):
     ax = axes[i]
     dd = vlist[i].copy()
     ax.plot(xrng, dd.mean(axis=1),      color='black', lw=2.0, zorder=8)
-    ax.plot(xrng, np.median(dd,axis=1), color='black', lw=2.0, ls='--', zorder=8)
+    #ax.plot(xrng, np.median(dd,axis=1), color='black', lw=2.0, ls='--', zorder=8)
     # Plot the max and min
     #ax.plot(xrng, dd.loc[:,dd.sum(axis=0).idxmax()], lw=2.0, color='black', ls=':', zorder=8)
     #ax.plot(xrng, dd.loc[:,dd.sum(axis=0).idxmin()], lw=2.0, color='black', ls=':', zorder=8)
     # Plot full ensemble of timesteps
-    for j in range(0,dd.shape[1],1):
-        ax.plot(xrng, dd.iloc[:,j], color='grey', alpha=0.3, lw=0.5)
+    #for j in range(0,dd.shape[1],1):
+    #    ax.plot(xrng, dd.iloc[:,j], color='grey', alpha=0.3, lw=0.5)
     ax.set_ylabel(vlist_[i])
     ax.minorticks_on()
     ax.set_xlim(0, xrng.max())
@@ -956,10 +690,7 @@ plt.show()
 
 
 
-
-
-
-
+"""
 #
 # Daily Stacked Spatial Plots -- Round 2
 #
@@ -1049,7 +780,7 @@ ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
 axes[0].set_title('WY{}'.format(yr), fontsize=14)
 plt.savefig(os.path.join(fpath, 'clm_daily_stack_temporal_temps.png'),dpi=300)
 plt.show()
-
+"""
 
 
 
@@ -1355,9 +1086,7 @@ plt.show()
 
 
 
-
-
-
+"""
 #---------------------------------------
 #
 # Debug using top right of domain
@@ -1452,9 +1181,7 @@ ax.grid()
 #fig.tight_layout()
 plt.savefig(os.path.join(fpath, 'clm_temporal_pnt.debug.png'),dpi=300)
 plt.show()
-
-
-
+"""
 
 
 

@@ -13,6 +13,9 @@ import matplotlib.patches as patches
 plt.rcParams['font.size'] = 14
 
 
+import matplotlib
+from matplotlib.ticker import LogFormatter
+
 
 #
 # Read in Permeability File
@@ -36,10 +39,8 @@ for i in range(len(ll)):
         if ll[i].split()[1] == 'dzScale.nzListNumber':
             ncells = int(ll[i].split()[2])
             
-
 dz    = []             
 K_mhr = []
-
 
 for i in range(len(ll)):
     try: 
@@ -47,7 +48,7 @@ for i in range(len(ll)):
     except IndexError:
         pass
     else:
-        for j in range(ncells):
+        for j in range(ncells+1):
             if '.'.join(ll[i].split()[1].split('.')[:3]) == 'Cell.{}.dzScale'.format(j):
                 #print (ll[i].split()[-1])
                 dz.append(float(ll[i].split()[-1]))
@@ -57,27 +58,27 @@ for i in range(len(ll)):
 
 
 # Mangle Units
-
 cell_multiplier = 10.0 
+cells  = np.array(dz) * cell_multiplier
+cells_centered = np.cumsum(cells).max() - (np.cumsum(cells) - np.array(dz)*10/2)
 
-cells_ = dz + [0]
-cells  = np.array(cells_) * cell_multiplier
+Z  = np.flip(cells).cumsum() # depth below land surface for each layer
+Z_ = np.flip(cells_centered)
 
-Z = np.flip(cells).cumsum() # depth below land surface for each layer
+# Pad the first value so land surface is at 0 meters
+Z = np.concatenate((np.array([0]), Z))
+Z_ = np.concatenate((np.array([0]), Z_))
 
-
-K_ = [K_mhr[0]] +  K_mhr
+#K_ = [K_mhr[0]] +  K_mhr
+K_  = K_mhr + [K_mhr[-1]] # Not sure, but this aligns everything up correct
 K  = np.array(K_) / 3600 # m/sec
 
 lK = np.log10(K)
 
+
+#
 # plots
-
-
-import matplotlib
-from matplotlib.ticker import LogFormatter
-
-
+#
 cmap = matplotlib.cm.coolwarm
 normalize = matplotlib.colors.LogNorm(vmin=K.min(), vmax=K.max())
 normalize = matplotlib.colors.LogNorm(vmin=1.e-9, vmax=1.e-4)

@@ -8,11 +8,17 @@ import os
 
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator, MultipleLocator
+from matplotlib.ticker import MaxNLocator, MultipleLocator, AutoMinorLocator
 plt.rcParams['font.size']=14
 
+import matplotlib.dates as mdates
+
+
+
 #------------------------------
+#
 # Field Observations
+#
 #------------------------------
 #----
 # Well Info
@@ -30,18 +36,18 @@ plm1_obs = plm1_obs[~((plm1_obs.index.month == 2) & (plm1_obs.index.day == 29))]
 plm6_obs = plm6_obs[~((plm6_obs.index.month == 2) & (plm6_obs.index.day == 29))]
 
 # 10/28/21 find depth below land surface
-#plm1_obs.loc[:,'bls'] = wells.loc['PLM1','land_surf_dem_m'] - plm1_obs.loc[:, 'Elevation']
-plm1_obs['bls'] = wells.loc['PLM1','land_surf_dem_m'] - plm1_obs.loc[:,'Elevation']
-plm6_obs['bls'] = wells.loc['PLM6','land_surf_dem_m'] - plm6_obs.loc[:,'Elevation']
+plm1_obs['bls'] = wells.copy().loc['PLM1','land_surf_dem_m'] - plm1_obs.copy().loc[:,'Elevation']
+plm6_obs['bls'] = wells.copy().loc['PLM6','land_surf_dem_m'] - plm6_obs.copy().loc[:,'Elevation']
 
 
 
-#-----
+#----- 
 # Layer Depths (m to the bottom of layer)
 l_depths = {}
 l_depths['soil'] = 5.0
 l_depths['sap']  = 9.0
 
+# Note -- should automate the above to pull from permeability script directly
 
 
 
@@ -106,9 +112,11 @@ prcp_sumy       = (met_comp['prcp']*3600*3).groupby(pd.Grouper(freq='Y')).sum() 
 
 
 
-#------------------------------
-# ParFlow Water Levels
-#------------------------------
+#----------------------------------
+#
+# ParFlow Simulated Water Levels
+#
+#----------------------------------
 def pf_2_dates(startdate, enddate, f):
     '''Assumes ParFlow outputs every 24 hours'''
     s = pd.to_datetime(startdate)
@@ -129,7 +137,6 @@ pf_00_16.index  =  pf_2_dates('1999-09-30', '2016-09-30', '24H')
 pf_17_21.index  =  pf_2_dates('2016-09-30', '2021-08-29', '24H')
 
 
-
 #
 # Convert water level elevations to depth to water levels
 #pf_spinup_  = pf_spinup.copy()
@@ -141,9 +148,28 @@ pf_17_21.index  =  pf_2_dates('2016-09-30', '2021-08-29', '24H')
 #    pf_17_21_.loc[:,i]  = wells.loc[i,'land_surf_cx'] - pf_17_21_.loc[:,i]
 
 
+#
+# set ticks to beginning of water year (october 01)
+def set_wy(df):
+    dates     = df.copy().index
+    yrs       = dates.year
+    yrs_      = np.unique(yrs)[1:]
+    wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs_]
+    wy_inds   = np.array([wy_inds_[i]*yrs_[i] for i in range(len(yrs_))]).sum(axis=0)
+    first_yrs = [(wy_inds==i).argmax() for i in yrs_]
+    return list(yrs_), list(first_yrs)
+
+yrs_spinup, first_yrs_spinup = set_wy(pf_spinup)
+yrs_0021, first_yrs_0021 = set_wy(pd.concat((pf_00_16, pf_17_21)))
+yrs_1721, first_yrs_1721 = set_wy(pf_17_21)
+
+
+
 
 #--------------------------------------------
+#
 # Water Level Plots
+#
 #--------------------------------------------
 # Create a new directory for figures
 if os.path.exists('figures') and os.path.isdir('figures'):
@@ -158,170 +184,213 @@ w = ['PLM1','PLM7','PLM6']
 
 
 #--------------------------------------------
-# spinup
+#
+# Spinup
+#
 #--------------------------------------------
-fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(8,10))
-fig.subplots_adjust(hspace=0.25, top=0.95, right=0.97)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(5,4.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.2)
 w = ['PLM1','PLM7','PLM6']
-w = ['blk']+w
+ts = pf_spinup.copy()
 # Plot water levels
-for i in range(1,len(w)):
-    ax[i].plot(pf_spinup[w[i]], label=w[i])
-    ax[i].text(0.05, 0.05, str(w[i]), horizontalalignment='center', verticalalignment='center', transform=ax[i].transAxes)
+for i in range(len(w)):
+    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
     ax[i].invert_yaxis()
     # Now add field observations
-    #if w[i] == 'PLM1':
-    #    ax[i].plot(plm1_obs['Elevation'], color='C3', alpha=0.5)
-    #elif w[i] == 'PLM6':
-    #    ax[i].plot(plm6_obs['Elevation'], color='C3', alpha=0.5)
-    # Land Surface Elevation
-    #ax[i].axhline(wells.loc[w[i],'land_surf_dem_m'], color='black', alpha=0.5, linestyle='--')
-    #x[i].axhline(wells.loc[w[i],'land_surf_cx'], color='black', alpha=0.5, linestyle='--')
+    if w[i] == 'PLM1':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
+        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='C3', alpha=0.5)
+    elif w[i] == 'PLM6':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
+        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='C3', alpha=0.5)
     # Plot vertical lines on May 1st
-    df_may1 = ['{}-05-01'.format(j) for j in pf_spinup.index.year.unique()[1:]]
-    [ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
+    df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
+    [ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
+    # X-ticks
+    ax[i].set_xticks(first_yrs_spinup)
+    ax[i].set_xticklabels(labels=yrs_spinup)
     # Add in layers
-    ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
+    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
     # Clean up
-    ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-ax[3].set_xlabel('Date')
-ax[2].set_ylabel('Depth (m)')
-# Add in precipitation rates
-axp = ax[0]
-axp.bar(prcp0_summ.index, prcp0_summ, width=25.0, color='black', alpha=0.7)
-jan    = prcp0_summ[prcp0_summ.index.month == 1] # note, this is december 31
-notjan = prcp0_summ[prcp0_summ.index.month != 1]
-axp.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
-axp.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
-df_may1 = ['{}-05-01'.format(j) for j in prcp0_summ.index.year.unique()[1:]]
-[axp.axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
-# Clean up
-axp.set_ylabel('Precipitation\n(mm/month)')
-#axp.invert_yaxis()
-#axp.xaxis.tick_top()
-# Clean up
-[ax[i].xaxis.set_ticks_position('both') for i in [0,1,2,3]]
-[ax[i].tick_params(axis='x', bottom=True, top=True, length=4, width=1.25) for i in [0,1,2,3]]
-[ax[i].margins(x=0.01) for i in [0,1,2,3]]
-#plt.savefig('./figures/waterlevels_17_21.jpg', dpi=320)
+    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
+    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False)
+    if i == 1:
+        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+    else:
+        ax[i].set_ylabel(w[i])
+    ax[i].minorticks_on()
+    ax[i].tick_params(axis='x', which='minor', bottom=False)
+    ax[i].margins(x=0.01)
+#ax[2].set_xlabel('Date')
+plt.savefig('./figures/waterlevels_spinup.jpg', dpi=300)
 plt.show()
 
 
 
 
 #--------------------------------------------
+#
 # 2000-2021
+#
 #--------------------------------------------
-fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(8,10))
-fig.subplots_adjust(hspace=0.25, top=0.95, right=0.97)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(5,4.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.2)
 w = ['PLM1','PLM7','PLM6']
-w = ['blk']+w
+ts = pd.concat((pf_00_16,pf_17_21))
 # Plot water levels
-for i in range(1, len(w)):
-    ax[i].plot(pf_00_16[w[i]], label=w[i])
-    ax[i].plot(pf_17_21[w[i]], label=w[i])
-    ax[i].text(0.05, 0.05, str(w[i]), horizontalalignment='center', verticalalignment='center', transform=ax[i].transAxes)   
+for i in range(len(w)):
+    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
     ax[i].invert_yaxis()
     # Now add field observations
     if w[i] == 'PLM1':
-        ax[i].plot(plm1_obs['bls'], color='C3', alpha=0.5)
+        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
+        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='C3', alpha=0.5)
     elif w[i] == 'PLM6':
-        ax[i].plot(plm6_obs['bls'], color='C3', alpha=0.5)
-    # Land Surface Elevation
-    #ax[i].axhline(wells.loc[w[i],'land_surf_dem_m'], color='black', alpha=0.5, linestyle='--')
-    #x[i].axhline(wells.loc[w[i],'land_surf_cx'], color='black', alpha=0.5, linestyle='--')
+        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
+        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='C3', alpha=0.5)
     # Plot vertical lines on May 1st
-    pf_may1 = ['{}-05-01'.format(j) for j in pf_00_16.index.year.unique()[1:]]
-    [ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in pf_may1]
-    df_may1 = ['{}-05-01'.format(j) for j in pf_17_21.index.year.unique()[1:]]
-    [ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]    
+    df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
+    [ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
+    # X-ticks
+    ax[i].set_xticks(first_yrs_0021[::3])
+    ax[i].set_xticklabels(labels=yrs_0021[::3])
     # Add in layers
-    ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
+    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
     # Clean up
-    ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-ax[3].set_xlabel('Date')
-ax[2].set_ylabel('Depth (m)')
-# Add in precipitation rates
-axp = ax[0]
-axp.bar(prcp_summ.index, prcp_summ, width=25.0, color='black', alpha=0.7)
-axp.plot(prcp_sumy/10, color='black', alpha=1.0)
-jan    = prcp_summ[prcp_summ.index.month == 1] # note, this is december 31
-notjan = prcp_summ[prcp_summ.index.month != 1]
-axp.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
-axp.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
-df_may1 = ['{}-05-01'.format(j) for j in prcp_summ.index.year.unique()[1:]]
-[axp.axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1] 
-# Clean up
-axp.set_ylabel('Precipitation\n(mm/month)')
-[ax[i].tick_params(axis='x', bottom=True, top=True, length=4, width=1.25) for i in [0,1,2,3]]
-[ax[i].margins(x=0.01) for i in [0,1,2,3]]
-#plt.savefig('./figures/waterlevels_79_21.mo.jpg', dpi=320)
-plt.savefig('./figures/waterlevels_00_21.jpg', dpi=320)
+    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
+    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False)
+    if i == 1:
+        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+    else:
+        ax[i].set_ylabel(w[i])
+    ax[i].minorticks_on()
+    ax[i].tick_params(axis='x', which='minor', bottom=False)
+    ax[i].margins(x=0.01)
+#ax[2].set_xlabel('Date')
+plt.savefig('./figures/waterlevels_00_21.jpg', dpi=300)
 plt.show()
 
 
 
 
+
 #--------------------------------------------
+#
 # 2017-2021
+#
 #--------------------------------------------
-fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(8,10))
-fig.subplots_adjust(hspace=0.25, top=0.95, right=0.97)
+
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(5,4.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.2)
 w = ['PLM1','PLM7','PLM6']
-w = ['blk']+w
+ts = pf_17_21.copy()
 # Plot water levels
-for i in range(1,len(w)):
-    ax[i].plot(pf_17_21[w[i]], label=w[i])
-    ax[i].text(0.05, 0.05, str(w[i]), horizontalalignment='center', verticalalignment='center', transform=ax[i].transAxes)   
+for i in range(len(w)):
+    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
     ax[i].invert_yaxis()
     # Now add field observations
     if w[i] == 'PLM1':
-        ax[i].plot(plm1_obs['bls'], color='C3', alpha=0.5)
+        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
+        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='C3', alpha=0.5)
     elif w[i] == 'PLM6':
-        ax[i].plot(plm6_obs['bls'], color='C3', alpha=0.5)
-    # Land Surface Elevation
-    #ax[i].axhline(wells.loc[w[i],'land_surf_dem_m'], color='black', alpha=0.5, linestyle='--')
-    #x[i].axhline(wells.loc[w[i],'land_surf_cx'], color='black', alpha=0.5, linestyle='--')
+        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
+        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='C3', alpha=0.5)
     # Plot vertical lines on May 1st
-    df_may1 = ['{}-05-01'.format(j) for j in pf_17_21.index.year.unique()[1:]]
-    [ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]    
+    df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
+    [ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
+    # X-ticks
+    ax[i].set_xticks(first_yrs_1721)
+    ax[i].set_xticklabels(labels=yrs_1721)
     # Add in layers
-    ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
+    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
     # Clean up
-    ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-ax[3].set_xlabel('Date')
-ax[2].set_ylabel('Depth (m)')
-# Add in precipitation rates
-axp = ax[0]
-axp.bar(prcp2_summ.index, prcp2_summ, width=25.0, color='black', alpha=0.7)
-jan    = prcp2_summ[prcp2_summ.index.month == 1] # note, this is december 31
-notjan = prcp2_summ[prcp2_summ.index.month != 1]
-axp.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
-axp.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
-df_may1 = ['{}-05-01'.format(j) for j in prcp2_summ.index.year.unique()[1:]]
-[axp.axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1] 
-# Clean up
-axp.set_ylabel('Precipitation\n(mm/month)')
-#axp.invert_yaxis()
-#axp.xaxis.tick_top()
-# Clean up
-[ax[i].xaxis.set_ticks_position('both') for i in [0,1,2,3]]
-[ax[i].tick_params(axis='x', bottom=True, top=True, length=4, width=1.25) for i in [0,1,2,3]]
-[ax[i].margins(x=0.01) for i in [0,1,2,3]]
-plt.savefig('./figures/waterlevels_17_21.jpg', dpi=320)
+    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
+    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False)
+    if i == 1:
+        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+    else:
+        ax[i].set_ylabel(w[i])
+    ax[i].minorticks_on()
+    ax[i].tick_params(axis='x', which='minor', bottom=False)
+    ax[i].margins(x=0.01)
+#ax[2].set_xlabel('Date')
+plt.savefig('./figures/waterlevels_17_21.jpg', dpi=300)
 plt.show()
 
 
 
+
+
+
+
+
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(4,4))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.2, right=0.97, left=0.2)
+w = ['PLM1','PLM7','PLM6']
+ts = pf_17_21.copy()
+# Plot water levels
+for i in range(len(w)):
+    ax[i].plot(ts[w[i]], label=w[i])
+    ax[i].invert_yaxis()
+    # Now add field observations
+    if w[i] == 'PLM1':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
+        ax[i].plot(plm1_obs['bls'], color='black', ls='--', alpha=0.75)
+    elif w[i] == 'PLM6':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
+        ax[i].plot(plm6_obs['bls'], color='black', ls='--', alpha=0.75)
+    # Plot vertical lines on May 1st
+    #df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
+    #[ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
+    # X-ticks
+    #ax[i].set_xticks(first_yrs_1721)
+    #ax[i].set_xticklabels(labels=yrs_1721)
+    loc = mdates.MonthLocator(bymonth=[10])
+    loc_min = mdates.MonthLocator(interval=1)
+    ax[i].xaxis.set_major_locator(loc)
+    ax[i].xaxis.set_minor_locator(loc_min)
+    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+    # Add in layers
+    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
+    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
+    # Clean up
+    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
+    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    ax[i].yaxis.set_minor_locator(AutoMinorLocator())
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.01, length=4, width=1.1)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False, length=4, width=1.1)
+    if i == 1:
+        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+    else:
+        ax[i].set_ylabel(w[i])
+    #ax[i].minorticks_on()
+    #ax[i].tick_params(axis='x', which='minor', bottom=False)
+    ax[i].margins(x=0.01)
+    ax[i].grid()
+#ax[2].set_xlabel('Date')
+plt.savefig('./figures/waterlevels_17_21.jpg', dpi=300)
+plt.show()
 
 
 
@@ -348,7 +417,9 @@ plt.show()
 
 
 #--------------------------------------------
+#
 # Ecoslim Age Distributions
+#
 #--------------------------------------------
 def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
     '''Convert particle ages at a single model time and well location to a residence time distribution.
@@ -388,12 +459,10 @@ date_map = pd.DataFrame(pf_17_21.index, columns=['Date'])
 # Pick a well
 well = 'PLM6'
 samp_date = '2021-05-11'
-model_time = date_map[date_map['Date'] == samp_date].index[0]
-model_time = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time).argmin()]
-model_time_samp = model_time
-print (model_time)
+model_time_samp = date_map[date_map['Date'] == samp_date].index[0]
+model_time_samp = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time_samp).argmin()]
 
-rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, well, 15)
+rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time_samp, well, 15)
 tau = (rtd_df['Time'] * rtd_df['wt']).sum()
 tau_med = np.median(rtd_df['Time'])
 
@@ -434,7 +503,7 @@ fig.subplots_adjust(wspace=0.40, hspace=0.45, top=0.94, right=0.97, left=0.15)
 for i in range(3):
     # Get the data
     w = wells[i]
-    rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+    rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time_samp, w, 30)
     tau = (rtd_df['Time'] * rtd_df['wt']).sum()
     tau_med = np.median(rtd_df['Time'])
     # not sure here, some NANs where there are zero particles
@@ -483,24 +552,27 @@ plt.show()
 
 
 
-
-
-
-
-
 #----------------------------------
+#
 # Transient Age Distributions
+#
 #----------------------------------
+
+# pick a water years
+yr = [2019]
+wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['Date'] < '{}-10-01'.format(i)), True, False) for i in yr]
+wy_inds = date_map.index[wy_inds_[0]]
+
+
+
 
 wells = ['PLM1','PLM7','PLM6']
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,6))
-fig.subplots_adjust(wspace=0.05, hspace=0.45, top=0.94, right=0.92, left=0.25)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,5.5))
+fig.subplots_adjust(wspace=0.05, hspace=0.30, top=0.98, right=0.92, left=0.25)
+time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
 for i in range(3):
     # Get the data
     w = wells[i]
-
-    time_list = list(rtd_dict.keys()) + [model_time]
-    
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
@@ -511,35 +583,26 @@ for i in range(3):
             rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
-           
         ax1 = ax[i]
-        
         # Plot the Age CDF 
-        #ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=10)
         if model_time == model_time_samp:
             ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', alpha=0.75, zorder=6)
             ax1.axvline(tau, color='red', alpha=0.5, linestyle='--', zorder=5)
         else:
             ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
             ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
-        ax1.set_ylabel('CDF (NP={})'.format(len(rtd_df)))
+        ax1.set_ylabel('{}'.format(w))
         #ax1.set_ylabel('CDF')
-        ax1.set_title(w, fontsize=14)
-            
+        #ax1.set_title(w, fontsize=14)
     # Clean up 
     matcks = ax[i].get_xticks()
     ax[i].xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
     #matcks = ax[i,1].get_xticks()
     ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
     ## Tick sizes
-    ax[i].tick_params(which='major', axis='x', bottom=True, top=False, length=4, width=1.25)
-    #ax[i,1].tick_params(which='major', axis='x', bottom=True, top=False, length=4, width=1.25)
-    ax[i].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
-    #ax[i,1].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
-
+    ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
+    #ax[i].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
 ax[2].set_xlabel('Particle Ages (years)')    
-#ax[2,1].set_xlabel('Particle Ages (years)')
-
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
 plt.show()
@@ -550,16 +613,13 @@ plt.show()
 # dummy soil wells
 #
 wells = ['X404', 'X494', 'X540']
-names = ['PLM1_soil', 'PLM6_soil', 'floodplain']
+names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,6))
-fig.subplots_adjust(wspace=0.05, hspace=0.45, top=0.94, right=0.92, left=0.25)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,5.5))
+fig.subplots_adjust(wspace=0.05, hspace=0.30, top=0.98, right=0.92, left=0.25)
+time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
 for i in range(3):
-    # Get the data
     w = wells[i]
-
-    time_list = list(rtd_dict.keys()) + [model_time]
-    
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
@@ -581,26 +641,113 @@ for i in range(3):
         else:
             ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
             ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
-        ax1.set_ylabel('CDF (NP={})'.format(len(rtd_df)))
+        ax1.set_ylabel('{}'.format(names[i]))
         #ax1.set_ylabel('CDF')
-        ax1.set_title(names[i], fontsize=14)
-            
+        #ax1.set_title(names[i], fontsize=14)
     # Clean up 
     matcks = ax[i].get_xticks()
     ax[i].xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
     #matcks = ax[i,1].get_xticks()
     ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
     ## Tick sizes
-    ax[i].tick_params(which='major', axis='x', bottom=True, top=False, length=4, width=1.25)
-    #ax[i,1].tick_params(which='major', axis='x', bottom=True, top=False, length=4, width=1.25)
-    ax[i].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
-    #ax[i,1].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
-
+    ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
 ax[2].set_xlabel('Particle Ages (years)')    
 #ax[2,1].set_xlabel('Particle Ages (years)')
-#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
-#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
+plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.png',dpi=300)
+plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
 plt.show()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(6,6))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.1, right=0.97, left=0.2)
+w = ['PLM1','PLM7','PLM6']
+w = ['blk']+w
+# Plot water levels
+for i in range(1,len(w)):
+    ax[i].plot(pf_17_21[w[i]], label=w[i])
+    #ax[i].text(0.05, 0.05, str(w[i]), horizontalalignment='center', verticalalignment='center', transform=ax[i].transAxes)   
+    ax[i].invert_yaxis()
+    # Now add field observations
+    if w[i] == 'PLM1':
+        ax[i].plot(plm1_obs['bls'], color='C3', alpha=0.5)
+    elif w[i] == 'PLM6':
+        ax[i].plot(plm6_obs['bls'], color='C3', alpha=0.5)
+    # Land Surface Elevation
+    #ax[i].axhline(wells.loc[w[i],'land_surf_dem_m'], color='black', alpha=0.5, linestyle='--')
+    #x[i].axhline(wells.loc[w[i],'land_surf_cx'], color='black', alpha=0.5, linestyle='--')
+    # Plot vertical lines on May 1st
+    df_may1 = ['{}-05-01'.format(j) for j in pf_17_21.index.year.unique()[1:]]
+    [ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]    
+    # Add in layers
+    ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
+    ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
+    ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
+    # Clean up
+    ax[i].yaxis.set_major_locator(MultipleLocator(2))
+    ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False)
+    if i == 2:
+        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+    else:
+        ax[i].set_ylabel(w[i])
+ax[3].set_xlabel('Date')
+#ax[2].set_ylabel('Depth (m)')
+# Add in precipitation rates
+axp = ax[0]
+axp.bar(prcp2_summ.index, prcp2_summ, width=25.0, color='black', alpha=0.7)
+jan    = prcp2_summ[prcp2_summ.index.month == 1] # note, this is december 31
+notjan = prcp2_summ[prcp2_summ.index.month != 1]
+axp.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
+axp.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
+df_may1 = ['{}-05-01'.format(j) for j in prcp2_summ.index.year.unique()[1:]]
+[axp.axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1] 
+# Clean up
+axp.set_ylabel('Precipitation\n(mm/month)')
+# Clean up
+axp.set_ylabel('Precipitation\n(mm/month)')
+axp.minorticks_on()
+axp.tick_params(axis='x', labelbottom=False)
+axp.tick_params(axis='x', which='minor', bottom=False)
+[ax[i].margins(x=0.01) for i in [0,1,2,3]]
+plt.savefig('./figures/waterlevels_17_21.jpg', dpi=320)
+plt.show()
+"""
