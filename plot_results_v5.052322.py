@@ -291,64 +291,13 @@ plt.show()
 # 2017-2021
 #
 #--------------------------------------------
-
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(5,4.5))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.2)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(4.5,3.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.25, right=0.97, left=0.25)
 w = ['PLM1','PLM7','PLM6']
 ts = pf_17_21.copy()
 # Plot water levels
 for i in range(len(w)):
-    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
-    ax[i].invert_yaxis()
-    # Now add field observations
-    if w[i] == 'PLM1':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
-        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='C3', alpha=0.5)
-    elif w[i] == 'PLM6':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
-        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='C3', alpha=0.5)
-    # Plot vertical lines on May 1st
-    df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
-    [ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
-    # X-ticks
-    ax[i].set_xticks(first_yrs_1721)
-    ax[i].set_xticklabels(labels=yrs_1721)
-    # Add in layers
-    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
-    # Clean up
-    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-    if i == len(w)-1:
-        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
-    else:
-        ax[i].tick_params(axis='x', labelbottom=False)
-    if i == 1:
-        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
-    else:
-        ax[i].set_ylabel(w[i])
-    ax[i].minorticks_on()
-    ax[i].tick_params(axis='x', which='minor', bottom=False)
-    ax[i].margins(x=0.01)
-#ax[2].set_xlabel('Date')
-plt.savefig('./figures/waterlevels_17_21.jpg', dpi=300)
-plt.show()
-
-
-
-
-
-
-
-
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(4,4))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.2, right=0.97, left=0.2)
-w = ['PLM1','PLM7','PLM6']
-ts = pf_17_21.copy()
-# Plot water levels
-for i in range(len(w)):
-    ax[i].plot(ts[w[i]], label=w[i])
+    ax[i].plot(ts[w[i]], lw=1.5, label=w[i])
     ax[i].invert_yaxis()
     # Now add field observations
     if w[i] == 'PLM1':
@@ -377,11 +326,11 @@ for i in range(len(w)):
     #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     if i == len(w)-1:
-        ax[i].tick_params(axis='x', rotation=45, pad=0.01, length=4, width=1.1)
+        ax[i].tick_params(axis='x', rotation=45, pad=0.005, length=4, width=1.1)
     else:
         ax[i].tick_params(axis='x', labelbottom=False, length=4, width=1.1)
     if i == 1:
-        ax[i].set_ylabel('{}\n{}'.format('Depth (m)', w[i]))
+        ax[i].set_ylabel('{}\n\n{}'.format('Depth (m)', w[i]))
     else:
         ax[i].set_ylabel(w[i])
     #ax[i].minorticks_on()
@@ -394,24 +343,72 @@ plt.show()
 
 
 
-"""
+
 #--------------------
+#
 # Precipitation Plots
+#
 #--------------------
-fig, ax = plt.subplots()
-ax.bar(prcp_summ.index, prcp_summ, width=30.0, color='black', alpha=0.7)
-jan    = prcp_summ[prcp_summ.index.month == 1] # note, this is december 31
-notjan = prcp_summ[prcp_summ.index.month != 1]
-ax.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
-ax.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
-# Add in spinup?
-ax.bar(prcp0_summ.index, prcp0_summ, width=30.0, color='black', alpha=0.7)
-jan    = prcp0_summ[prcp0_summ.index.month == 1] # note, this is december 31
-notjan = prcp0_summ[prcp0_summ.index.month != 1]
-ax.bar(notjan.index, notjan, width=30.0, color='grey', alpha=1.0)
-ax.bar(jan.index, jan, width=30.0, color='black', alpha=1.0) # Call out jan precip?
+#
+# Only modern times
+#
+prcp_summ_ = pd.DataFrame(prcp_summ.iloc[np.where(prcp_summ.index>pd.to_datetime('2016-09-30'))[0]])
+
+dates     = prcp_summ_.index
+yrs       = np.unique(dates.year)
+wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs]
+wy_inds   = np.array([wy_inds_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
+
+prcp_summ_['wy'] = wy_inds.T
+prcp_summ_cs = prcp_summ_.groupby(by=['wy']).cumsum()
+
+# use daily data for cumulative plots
+prcp_sumd_ = (met_comp['prcp']*3600*3).groupby(pd.Grouper(freq='D')).sum()
+prcp_sumd_ = pd.DataFrame(prcp_sumd_.iloc[np.where(prcp_sumd_.index>pd.to_datetime('2016-09-30'))[0]])
+
+dates     = prcp_sumd_.index
+yrs       = np.unique(dates.year)
+wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs]
+wy_inds   = np.array([wy_inds_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
+
+prcp_sumd_['wy'] = wy_inds.T
+prcp_sumd_cs = prcp_sumd_.groupby(by=['wy']).cumsum()
+
+###
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.5,3))
+fig.subplots_adjust(top=0.98, bottom=0.12, left=0.2, right=0.94, hspace=0.2)
+
+ax = axes[1]
+notjan = prcp_summ_[prcp_summ_.index.month != 1]
+#ax.bar(prcp_summ_.index, prcp_summ_['prcp'], width=20.0, color='black', alpha=0.9) 
+ax.bar(notjan.index, notjan['prcp'], width=20.0, color='black', alpha=0.9) 
+jan = prcp_summ_[prcp_summ_.index.month == 1]
+ax.bar(jan.index, jan['prcp'], width=20.0, color='grey', alpha=1.0) 
+ax.set_ylabel('Precipitation\n(mm/month)')
+
+ax = axes[0]
+ax.plot(prcp_sumd_cs.index, prcp_sumd_cs, color='black', lw=2.0)
+ax.set_ylabel('Cumulative\nPrecipitation\n(mm/year)')
+ax.tick_params(axis='x', labelbottom=False)
+
+for i in [0,1]:
+    ax = axes[i]
+    ax.minorticks_on()
+    loc = mdates.MonthLocator(bymonth=[10])
+    loc_min = mdates.MonthLocator(interval=1)
+    ax.xaxis.set_major_locator(loc)
+    ax.xaxis.set_minor_locator(loc_min)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+    ax.margins(x=0.01)
+    ax.tick_params(axis='both', length=4, width=1.1)
+    ax.grid()
+#axes[1].spines['top'].set_visible(False)
+plt.savefig('./figures/precpipitation_cumsum.jpg', dpi=300)
 plt.show()
-"""
+
+
+
+
 
 
 
@@ -559,26 +556,30 @@ plt.show()
 #----------------------------------
 
 # pick a water years
-yr = [2019]
+#yr = [2017, 2018, 2019, 2020, 2021]
+yr = [2019,2020]
 wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['Date'] < '{}-10-01'.format(i)), True, False) for i in yr]
-wy_inds = date_map.index[wy_inds_[0]]
+wy_inds   = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
+wy_inds   = np.concatenate(((wy_inds)))
 
-
+time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
+time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) #+ [model_time_samp]
 
 
 wells = ['PLM1','PLM7','PLM6']
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,5.5))
-fig.subplots_adjust(wspace=0.05, hspace=0.30, top=0.98, right=0.92, left=0.25)
-time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,4.2))
+fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.35)
 for i in range(3):
     # Get the data
     w = wells[i]
+    tau_   = []
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
             rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
             tau = (rtd_df['Time'] * rtd_df['wt']).sum()
             tau_med = np.median(rtd_df['Time'])
+            tau_.append(tau)
             # not sure here, some NANs where there are zero particles
             rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
@@ -586,26 +587,41 @@ for i in range(3):
         ax1 = ax[i]
         # Plot the Age CDF 
         if model_time == model_time_samp:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', alpha=0.75, zorder=6)
-            ax1.axvline(tau, color='red', alpha=0.5, linestyle='--', zorder=5)
+            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+            ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
         else:
             ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
             ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
-        ax1.set_ylabel('{}'.format(w))
-        #ax1.set_ylabel('CDF')
-        #ax1.set_title(w, fontsize=14)
+    #
+    # Replot the middle one in red?
+    mid_ind = np.where(tau_==np.sort(np.array(tau_))[len(tau_)//2])[0][0]
+    model_time = time_list[mid_ind]
+    try:
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+        tau_med = np.median(rtd_df['Time'])
+        # not sure here, some NANs where there are zero particles
+        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+    except ValueError:
+        pass
+    ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+    ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+    #
     # Clean up 
+    if i == 1:
+        ax1.set_ylabel('CDF\n{}'.format(w))
+    else:
+        ax1.set_ylabel('{}'.format(w))
     matcks = ax[i].get_xticks()
     ax[i].xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
-    #matcks = ax[i,1].get_xticks()
+    ax[i].yaxis.set_major_locator(MultipleLocator(0.5))
     ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
-    ## Tick sizes
     ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
-    #ax[i].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
 ax[2].set_xlabel('Particle Ages (years)')    
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
 plt.show()
+
 
 
 
@@ -615,44 +631,56 @@ plt.show()
 wells = ['X404', 'X494', 'X540']
 names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,5.5))
-fig.subplots_adjust(wspace=0.05, hspace=0.30, top=0.98, right=0.92, left=0.25)
-time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,4.2))
+fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.35)
 for i in range(3):
     w = wells[i]
+    tau_   = []
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
             rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
             tau = (rtd_df['Time'] * rtd_df['wt']).sum()
             tau_med = np.median(rtd_df['Time'])
+            tau_.append(tau)
             # not sure here, some NANs where there are zero particles
             rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
-           
         ax1 = ax[i]
-        
         # Plot the Age CDF 
-        #ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=10)
         if model_time == model_time_samp:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', alpha=0.75, zorder=6)
-            ax1.axvline(tau, color='red', alpha=0.5, linestyle='--', zorder=5)
+            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.75, zorder=6)
+            ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
         else:
             ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
             ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
-        ax1.set_ylabel('{}'.format(names[i]))
-        #ax1.set_ylabel('CDF')
-        #ax1.set_title(names[i], fontsize=14)
+    #
+    # Replot the middle one in red?
+    mid_ind = np.where(tau_==np.sort(np.array(tau_))[len(tau_)//2])[0][0]
+    model_time = time_list[mid_ind]
+    try:
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+        tau_med = np.median(rtd_df['Time'])
+        # not sure here, some NANs where there are zero particles
+        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+    except ValueError:
+        pass
+    ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+    ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+    #
     # Clean up 
+    if i == 1:
+        ax1.set_ylabel('CDF\n{}'.format(names[i]))
+    else:
+        ax1.set_ylabel('{}'.format(names[i]))
     matcks = ax[i].get_xticks()
-    ax[i].xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
-    #matcks = ax[i,1].get_xticks()
+    ax[i].minorticks_on()
+    ax[i].yaxis.set_major_locator(MultipleLocator(0.5))
     ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
-    ## Tick sizes
     ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
 ax[2].set_xlabel('Particle Ages (years)')    
-#ax[2,1].set_xlabel('Particle Ages (years)')
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.png',dpi=300)
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
 plt.show()
@@ -660,26 +688,90 @@ plt.show()
 
 
 
+#---------------------------
+#
+# Fraction of young versus old water in the floodplain wells
+#
+#---------------------------
+
+w = 'X540'
+#w = 'X494'
+
+younger = 20.0 
+
+
+labs_ = {'X540':'Floodplain',
+         'X494':'PLM6 Soil',
+         'X404':'PLM1 Soil'}
+
+# pick a water years
+yr = [2017, 2018, 2019, 2020, 2021]
+wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['Date'] < '{}-10-01'.format(i)), True, False) for i in yr]
+wy_inds   = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
+wy_inds   = np.concatenate(((wy_inds)))
+time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))])
+
+fig, ax = plt.subplots(figsize=(6.5,2.2))
+fig.subplots_adjust(top=0.86, bottom=0.15, left=0.2, right=0.94, hspace=0.2)
+ax.set_title(labs_[w], fontsize=14)
+for t in range(len(time_list)):
+    model_time = time_list[t]
+    try:
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+        tau_med = np.median(rtd_df['Time'])
+        # not sure here, some NANs where there are zero particles
+        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+    except ValueError:
+        pass
+
+    # Fraction of sample that is less than 10 years
+    frac_young = rtd_df[rtd_df['Time']<younger]['wt'].sum()
+    #print (date_map.loc[model_time,'Date'])
+    ax.scatter(date_map.loc[model_time,'Date'], frac_young, c='black') 
+ax.set_ylabel('Fraction\nYounger\n{} years'.format(int(younger)))
+loc = mdates.MonthLocator(bymonth=[10])
+#loc = mdates.MonthLocator(interval=2)
+loc_min = mdates.MonthLocator(interval=1)
+ax.xaxis.set_major_locator(loc)
+ax.xaxis.set_minor_locator(loc_min)
+#ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%Y'))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+ax.tick_params(axis='both', length=4, width=1.1)
+ax.margins(x=0.01)
+ax.grid()
+plt.savefig('./figures/rtd_younger_than.jpg', dpi=300)
+plt.savefig('./figures/rtd_younger_than.svg', format='svg')
+plt.show()
 
 
 
 
 
+#---------------------------
+#
+# Infiltration Location versus Age
+#
+#---------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+fig, ax = plt.subplots(figsize=(4,3))
+fig.subplots_adjust(top=0.88, bottom=0.2, left=0.25, right=0.9, hspace=0.2)
+ax.set_title(labs_[w], fontsize=14)
+for t in range(len(time_list)):
+    model_time = time_list[t]
+    try:
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+    except ValueError:
+        pass
+    ax.scatter(rtd_df['Xin'], rtd_df['Time'], c='black', marker='.') 
+ax.set_xlabel('Infiltration Location (m)')
+ax.set_ylabel('Age (years)')
+ax.tick_params(axis='both', length=4, width=1.1)
+ax.grid()
+ax.minorticks_on()
+plt.savefig('./figures/rtd_vs_inf.jpg', dpi=300)
+plt.savefig('./figures/rtd_vs_inf.svg', format='svg')
+plt.show()
 
 
 

@@ -90,7 +90,7 @@ dbs_c = dz_cumsum.max() - (dz_cumsum) + dz_scaled/2
 # Add dummy wells upslope for comparison purposes
 #-------------------
 # Xcell index number
-Xpos = [404, 494, 540]
+Xpos = [404, 494, 528]
 
 top_screen = 0.75
 bot_screen = 2.75

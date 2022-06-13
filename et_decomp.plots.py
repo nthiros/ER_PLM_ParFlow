@@ -33,7 +33,6 @@ plt.rcParams['font.size'] = 14
 # Define some variables
 #
 #---------------------------
-
 nsteps = 1794
 
 yrs = [2017,2018,2019,2020,2021] # Calender years within timeseries
@@ -51,7 +50,6 @@ if not os.path.exists(fpath):
 # Read in data
 #
 #---------------------------
-
 #
 # Read in pickles with all data 
 #
@@ -182,8 +180,6 @@ et_df.insert(loc=0, column='wy', value=wy_daily) # ! et_df is the et from the pa
 # Plotting
 #
 #----------------------------------
-
-
 #
 # Some helper functions
 #
@@ -195,10 +191,13 @@ days_ = prcp_sumd[prcp_sumd['wy']==yr].index
 first_month = [(days_.month==i).argmax() for i in [10,11,12,1,2,3,4,5,6,7,8,9]]
 
 wy_inds_helper = {2017:wy_17_inds,2018:wy_18_inds,2019:wy_19_inds,2020:wy_20_inds,2021:wy_21_inds}
+drng = np.arange(len(wy_inds_helper[yr]))
+
 
 pull_wy     = lambda df, wy: pd.DataFrame(df[df['wy']==wy])
 pull_prcp   = lambda df, wy: pd.DataFrame(df[df['wy']==wy]['prcp'])
-pull_et     = lambda wy: pd.DataFrame([(clm_out[i]['qflx_evap_tot'] + clm_out[i]['qflx_tran_veg']) for i in wy_inds_helper[wy]]).T
+#pull_et     = lambda wy: pd.DataFrame([(clm_out[i]['qflx_evap_tot'] + clm_out[i]['qflx_tran_veg']) for i in wy_inds_helper[wy]]).T
+pull_et     = lambda wy: pd.DataFrame([(clm_out[i]['qflx_evap_tot']) for i in wy_inds_helper[wy]]).T
 pull_infil  = lambda wy: pd.DataFrame([(clm_out[i]['qflx_infl']) for i in wy_inds_helper[wy]]).T
 pull_swe    = lambda wy: pd.DataFrame([(clm_out[i]['swe_out']) for i in wy_inds_helper[wy]]).T
 pull_grndT  = lambda wy: pd.DataFrame([(clm_out[i]['t_grnd']-273.15) for i in wy_inds_helper[wy]]).T
@@ -206,10 +205,11 @@ pull_soilT  = lambda wy: pd.DataFrame([(clm_out[i]['t_soil_0']-273.15) for i in 
 
 
 
+
+
 #
 # MET Forcing -- precipitation
 #
-
 pp1 = pull_prcp(prcp_summ, 2019)
 pp2 = pull_prcp(prcp_summ, 2020)
 pp3 = pull_prcp(prcp_sumy_cs, 2019)
@@ -258,21 +258,19 @@ plt.show()
 
 
 
-# Compare ET 
+"""# Compare ET 
 fig, ax = plt.subplots()
-#plt.plot(drng, pull_et(2019).mean(axis=0)*86400/3)
-plt.plot(drng, pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1)/3)
-#plt.plot(drng, pull_wy(et_df, 2019).iloc[:,200])
-
-plt.plot(drng, pull_infil(2019).mean(axis=0)*86400, ls='--')
+plt.plot(drng, pull_et(2019).mean(axis=0)*86400/3, label='CLM')
+plt.plot(drng, pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1), ls='--', label='ParFlow')
 
 ax.axhline(y=0.0, linestyle='--', color='black')
-
+ax.set_ylabel('ET (mm/day)')
 ax.set_xlim(0,366)
 ax.set_xticks(first_month)
 ax.set_xticklabels(labels=months)
 ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
-plt.show()
+ax.legend()
+plt.show()"""
 
 
 
@@ -283,20 +281,20 @@ plt.show()
 # CLM versus time plots
 #
 #--------------------------------------------
-
-drng = np.arange(len(wy_inds_helper[yr]))
-
 #
 # CLM ET
 #
 # CLM binary output
-#et1 = pull_et(2019).mean(axis=0)*86400 / 3 
-#et2 = pull_et(2020).mean(axis=0)*86400 / 3 
+et1 = pull_et(2019).mean(axis=0)*86400 / 3 
+et2 = pull_et(2020).mean(axis=0)*86400 / 3 
 
 # parflow.pfb files and pftools
-et1 = pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1) 
-et2 = pull_wy(et_df, 2020).iloc[:,1:].mean(axis=1)
+#e1 = pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1) 
+#et2 = pull_wy(et_df, 2020).iloc[:,1:].mean(axis=1)
 
+#
+# Precipitation
+#
 ppd1 = pull_prcp(prcp_sumd,2019)['prcp'].to_numpy().cumsum()
 ppd2 = pull_prcp(prcp_sumd,2020)['prcp'].to_numpy().cumsum()
 
@@ -422,61 +420,39 @@ plt.show()
 #
 # Plots that Integrate over both space and time
 #
-
 et_ = pull_et(yr).to_numpy().ravel() * 86400/3
-print (et_.mean())
-
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
-ax.hist(x=et_, bins=30, density=True)
+ax.hist(x=et_, bins=50, density=True)
 ax.set_ylabel('Density')
 ax.set_xlabel('ET (mm/day)')
 ax.minorticks_on()
 ax.grid()
-#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.savefig(os.path.join(fpath, 'et_distribution.png'),dpi=300)
 plt.show()
-
 #
-
-#et_ = pull_wy(et_df, 2019).iloc[:,1:].to_numpy().ravel()
-#print (et_.mean())
-
-fig, ax = plt.subplots(figsize=(3.5, 2.5))
-fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
-ax.hist(x=et_, bins=30, density=True)
-ax.set_ylabel('Density')
-ax.set_xlabel('ET (mm/day)')
-ax.minorticks_on()
-ax.grid()
-#plt.savefig('./figures/velz_distribution.png', dpi=300)
-plt.show()
-
 #
-
 inf_ = pull_infil(yr).to_numpy().ravel()*86400 / 3
-
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
-ax.hist(x=inf_, bins=30, density=True)
+ax.hist(x=inf_, bins=50, density=True)
 ax.set_ylabel('Density')
 ax.set_xlabel('Infiltration (mm/day)')
 ax.minorticks_on()
 ax.grid()
-#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.savefig(os.path.join(fpath, 'inf_distribution.png'),dpi=300)
 plt.show()
-
 #
-
+#
 rech_ = inf_ - et_
-
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
-ax.hist(x=rech_, bins=30, density=True)
+ax.hist(x=rech_, bins=50, density=True)
 ax.set_ylabel('Density')
 ax.set_xlabel('Recharge (mm/day)')
 ax.minorticks_on()
 ax.grid()
-#plt.savefig('./figures/velz_distribution.png', dpi=300)
+plt.savefig(os.path.join(fpath, 'rech_distribution.png'),dpi=300)
 plt.show()
 
 
@@ -489,7 +465,6 @@ plt.show()
 # Hillslope Plots
 #
 #--------------------------------------------------------------------
-
 xrng = np.arange(len(topo))*1.5125
 
 
@@ -504,11 +479,11 @@ cmap_cust = matplotlib.colors.LinearSegmentedColormap.from_list("mycmap", colors
 #    
 # Timeseries at Discrete Points
 #
-#x_pnts = [100, 300, 400, 500, 540]   
-x_pnts = [404, 494, 540]    
+x_pnts = [100, 300, 404, 494, 528]   
+#x_pnts = [404, 494, 540]    
 cc = plt.cm.viridis(np.linspace(0,1,len(x_pnts)))
-cc = ['C3','C4','C5']
-#cc = plt.cm.coolwarm(np.linspace(0,1,len(x_pnts)))
+#cc = ['C3','C4','C5']
+cc = plt.cm.coolwarm(np.linspace(0,1,len(x_pnts)))
 #cc = plt.cm.turbo(np.linspace(0,1,len(x_pnts)))
 
 
@@ -690,11 +665,14 @@ plt.show()
 
 
 
-"""
+
 #
 # Daily Stacked Spatial Plots -- Round 2
 #
-atemp_ = pd.DataFrame(np.array(atemp) * np.ones_like(gtemp))
+if atemp.shape[0] != gtemp.shape[1]:
+    atemp_ = pd.DataFrame(np.array(atemp)[:-1] * np.ones_like(gtemp))
+else:
+    atemp_ = pd.DataFrame(np.array(atemp) * np.ones_like(gtemp))
 
 vlist  = [atemp_, gtemp, stemp]
 vlist_ = ['Air Temp.\n(C)', 'Ground Temp.\n(C)', 'Soil Temp.\n(C)']
@@ -707,13 +685,13 @@ for i in range(len(vlist)):
     ax = axes[i]
     dd = vlist[i].copy()
     ax.plot(xrng, dd.mean(axis=1),      color='black', lw=2.0, zorder=8)
-    ax.plot(xrng, np.median(dd,axis=1), color='black', lw=2.0, ls='--', zorder=8)
+    #ax.plot(xrng, np.median(dd,axis=1), color='black', lw=2.0, ls='--', zorder=8)
     # Plot the max and min
     #ax.plot(xrng, dd.loc[:,dd.sum(axis=0).idxmax()], lw=2.0, color='black', ls=':', zorder=8)
     #ax.plot(xrng, dd.loc[:,dd.sum(axis=0).idxmin()], lw=2.0, color='black', ls=':', zorder=8)
     # Plot full ensemble of timesteps
-    for j in range(0,dd.shape[1],1):
-        ax.plot(xrng, dd.iloc[:,j], color='grey', alpha=0.3, lw=0.5)
+    #for j in range(0,dd.shape[1],1):
+    #    ax.plot(xrng, dd.iloc[:,j], color='grey', alpha=0.3, lw=0.5)
     ax.set_ylabel(vlist_[i])
     ax.minorticks_on()
     ax.set_xlim(0, xrng.max())
@@ -780,7 +758,7 @@ ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
 axes[0].set_title('WY{}'.format(yr), fontsize=14)
 plt.savefig(os.path.join(fpath, 'clm_daily_stack_temporal_temps.png'),dpi=300)
 plt.show()
-"""
+
 
 
 
