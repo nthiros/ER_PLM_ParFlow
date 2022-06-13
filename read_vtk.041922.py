@@ -20,7 +20,7 @@ import pdb
 #------------------------------------------------------   
 # Read in well info -- created by well_info_v2.py
 #well_df = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col=('well'))
-well_df = pd.read_csv('../utils/wells_2_pf_v4.dummy.csv', index_col=('well'))
+well_df = pd.read_csv('../ER_PLM_ParFlow/utils/wells_2_pf_v4.dummy.csv', index_col=('well'))
 
 
 # depth below land surface to bedrock
