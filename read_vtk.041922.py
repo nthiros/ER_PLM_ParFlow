@@ -251,8 +251,8 @@ class ecoslim_pnts_vtk():
                 mass   = dd['Mass'][msk_]
                 source = dd['Source'][msk_]
                 Xin    = dd['xInit'][msk_]
-                Yin    = dd['yInit'][msk_]
-                pid    = dd['pid'][msk_]
+                #Yin    = dd['yInit'][msk_]
+                #pid    = dd['pid'][msk_]
                 
                 # This does not work
                 # where do pid at wells overlap with pid of bedrock?
