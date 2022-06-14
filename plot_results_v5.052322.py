@@ -376,7 +376,7 @@ prcp_sumd_cs = prcp_sumd_.groupby(by=['wy']).cumsum()
 
 ###
 fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.5,3))
-fig.subplots_adjust(top=0.98, bottom=0.12, left=0.2, right=0.94, hspace=0.2)
+fig.subplots_adjust(top=0.98, bottom=0.12, left=0.20, right=0.94, hspace=0.2)
 
 ax = axes[1]
 notjan = prcp_summ_[prcp_summ_.index.month != 1]
@@ -628,7 +628,7 @@ plt.show()
 #
 # dummy soil wells
 #
-wells = ['X404', 'X494', 'X540']
+wells = ['X404', 'X494', 'X528']
 names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
 fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,4.2))
@@ -686,7 +686,7 @@ plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
 plt.show()
 
 
-
+ 
 
 #---------------------------
 #
@@ -694,13 +694,13 @@ plt.show()
 #
 #---------------------------
 
-w = 'X540'
-#w = 'X494'
+#w = 'X528'
+w = 'X494'
 
 younger = 20.0 
 
 
-labs_ = {'X540':'Floodplain',
+labs_ = {'X528':'Floodplain',
          'X494':'PLM6 Soil',
          'X404':'PLM1 Soil'}
 
@@ -710,12 +710,13 @@ wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['D
 wy_inds   = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
 wy_inds   = np.concatenate(((wy_inds)))
 time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))])
+time_list_ = time_list[::5]
 
 fig, ax = plt.subplots(figsize=(6.5,2.2))
-fig.subplots_adjust(top=0.86, bottom=0.15, left=0.2, right=0.94, hspace=0.2)
+fig.subplots_adjust(top=0.86, bottom=0.15, left=0.20, right=0.94, hspace=0.2)
 ax.set_title(labs_[w], fontsize=14)
-for t in range(len(time_list)):
-    model_time = time_list[t]
+for t in range(len(time_list_)):
+    model_time = time_list_[t]
     try:
         rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
         tau = (rtd_df['Time'] * rtd_df['wt']).sum()
@@ -729,7 +730,7 @@ for t in range(len(time_list)):
     frac_young = rtd_df[rtd_df['Time']<younger]['wt'].sum()
     #print (date_map.loc[model_time,'Date'])
     ax.scatter(date_map.loc[model_time,'Date'], frac_young, c='black') 
-ax.set_ylabel('Fraction\nYounger\n{} years'.format(int(younger)))
+ax.set_ylabel('Fraction Younger\n{} years'.format(int(younger)))
 loc = mdates.MonthLocator(bymonth=[10])
 #loc = mdates.MonthLocator(interval=2)
 loc_min = mdates.MonthLocator(interval=1)
@@ -753,17 +754,20 @@ plt.show()
 # Infiltration Location versus Age
 #
 #---------------------------
-
 fig, ax = plt.subplots(figsize=(4,3))
 fig.subplots_adjust(top=0.88, bottom=0.2, left=0.25, right=0.9, hspace=0.2)
 ax.set_title(labs_[w], fontsize=14)
-for t in range(len(time_list)):
-    model_time = time_list[t]
+for t in range(len(time_list_)):
+    model_time = time_list_[t]
     try:
-        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 60)
     except ValueError:
         pass
-    ax.scatter(rtd_df['Xin'], rtd_df['Time'], c='black', marker='.') 
+    if len(rtd_df) > 1000:
+        rtd_df_ = rtd_df.sample(n=1000)
+        ax.scatter(rtd_df_['Xin'], rtd_df_['Time'], c='black', marker='.') 
+    else:
+        ax.scatter(rtd_df['Xin'], rtd_df['Time'], c='black', marker='.')
 ax.set_xlabel('Infiltration Location (m)')
 ax.set_ylabel('Age (years)')
 ax.tick_params(axis='both', length=4, width=1.1)
@@ -772,9 +776,6 @@ ax.minorticks_on()
 plt.savefig('./figures/rtd_vs_inf.jpg', dpi=300)
 plt.savefig('./figures/rtd_vs_inf.svg', format='svg')
 plt.show()
-
-
-
 
 
 

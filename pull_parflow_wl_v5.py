@@ -149,7 +149,7 @@ z_info   = pd.read_csv('../utils/plm_grid_info_v3b.csv') # these are cell center
 #rundir, runname = ['wy_1979_2014']*2
 #rundir, runname = ['wy_2015_2021']*2
 
-for ff in ['wy_2017_2021']:
+for ff in ['wy_spinup','wy_2000_2016','wy_2017_2021']:
 #for ff in ['wy_2015_2021']:
     if ff in os.listdir():
         print ('working on {}'.format(ff))

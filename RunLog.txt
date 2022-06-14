@@ -3,25 +3,29 @@ Directories:
 
 NOTE: RunB.0 is the mint directly as of 1/5/2021
 
-RunA.0 -- 'Base' case model from Erica work -- fshale=5.605e-08
+RunA.0 -- 'Base' case model from Erica work -- wshale=5.605e-6, fshale=5.605e-08
 RunA.0.clmup.sm -- 'Base' model including smoothed DEM and CLM vegetation types
-RunA.1 -- High K -- fshale=5.605e-07
-RunA.2 -- Low K  -- fshale=5.605e-09
-RunA.3 -- Exponential K; fshale0=5.605e-07, fshale1=5.605e-9
-RunA.4 -- Exponential K with higher decay rate; fshale0=5.605e-07, fshale1=5.605e-12
+RunA.1 -- High K -- wshale=5.605e-6, fshale=5.605e-07
+RunA.2 -- Low K  -- wshale=5.605e-6, fshale=5.605e-09
+RunA.3 -- Exponential K with low  decay rate -- wshale=5.605e-6, fshale_top=5.605e-07, fshale_bottom=5.605e-9
+RunA.4 -- Exponential K with high decay rate -- wshale=5.605e-6, fshale_top=5.605e-07, fshale_bottom=5.605e-12
 
-RunB.0 -- 'Base' model including smoothed DEM and CLM vegetation types -- same as RunA.0.clmup.sm (I think)
-RunB.1 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10 
-RunB.2 -- wshale=5.605e-07. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
-RunB.3 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-06, fshale1=5.605e-10
+RunB.0 -- 'Base' model including smoothed DEM and CLM vegetation types -- same as RunA.0.clmup.sm (I think), Use this dir as base case
+RunB.0.mint -- same as above (Normal RunB.0 was corrupted somehow)
+RunB.0.veg0 -- same as above but homogeneous vegetation for CLM
+RunB.1 -- Exponential K with medium decay rate      -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10 
+RunB.2 -- Exponential K with low weathered shale K  -- wshale=5.605e-07, fshale_top=5.605e-07, fshale_bottom=5.605e-10
+RunB.3 -- Exponential K with high weathered shale K -- wshale=5.605e-06, fshale_top=5.605e-06, fshale_bottom=5.605e-10
+RunB.4 -- 2 layer model -- wshale=5.605e-6, fshale=5.605e-6
 
-RunC.0 -- 'Base' model with shallower (3m) soil layer
-RunC.1 -- wshale=5.605e-06. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
-RunC.2 -- wshale=5.605e-07. Exp bedrock fshale0=5.605e-07, fshale1=5.605e-10
+RunC.0 -- 'Base' model with shallower (3m) soil layer, bedrock at (9m) depth
+RunC.1 -- Exponential K with med decay rate        -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10
+RunC.2 -- Exponential K with low weathered shale K -- wshale=5.605e-07, fshale_top=5.605e-07, fshale_bottom=5.605e-10
 
-RunD.0 -- thinner soil layers: wshale=5.605e-7 fshale=5.605e-7
-RunD.1 -- wshale=5.605e-8  fshale=5.605e-8
-RunD.2 -- wshale=5.605e-6  fhsale=5.605e-6
+RunD.0 -- (2 layer model) Thin soil layer (2mbls) and bedrock at 4mbls 
+       -- med  K bedrock -- wshale=5.605e-7, fshale=5.605e-7
+RunD.1 -- low  K bedrock -- wshale=5.605e-8, fshale=5.605e-8
+RunD.2 -- high K bedrock -- wshale=5.605e-6,  fhsale=5.605e-6
 
 
 
