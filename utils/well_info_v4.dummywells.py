@@ -92,17 +92,21 @@ dbs_c = dz_cumsum.max() - (dz_cumsum) + dz_scaled/2
 # Xcell index number
 Xpos = [404, 494, 528]
 
-top_screen = 0.25
-bot_screen = 2.75
-smp_depth  = 1.75
+#top_screen = 0.25
+#bot_screen = 2.75
+#smp_depth  = 1.75
 
+
+top_screen = 0.1
+bot_screen = 3.0
+smp_depth  = 1.5
 
 
 for i in range(len(Xpos)):
     well.loc['X{}'.format(Xpos[i]), 'Cell_X']       = Xpos[i]
     well.loc['X{}'.format(Xpos[i]), 'X']            = Xpos[i]*1.5125
     
-    well.loc['X{}'.format(Xpos[i]), 'Cell_Z']       = np.where(dbs_c==smp_depth)[0][0]
+    well.loc['X{}'.format(Xpos[i]), 'Cell_Z']       = abs(dbs_c-smp_depth).argmin()
     well.loc['X{}'.format(Xpos[i]), 'smp_depth_m']  = smp_depth
     well.loc['X{}'.format(Xpos[i]), 'screen_top_m'] = top_screen
     well.loc['X{}'.format(Xpos[i]), 'screen_bot_m'] = bot_screen
