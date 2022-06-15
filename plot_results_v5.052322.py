@@ -459,6 +459,7 @@ samp_date = '2021-05-11'
 model_time_samp = date_map[date_map['Date'] == samp_date].index[0]
 model_time_samp = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time_samp).argmin()]
 
+"""
 rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time_samp, well, 15)
 tau = (rtd_df['Time'] * rtd_df['wt']).sum()
 tau_med = np.median(rtd_df['Time'])
@@ -542,7 +543,7 @@ plt.savefig('./figures/ecoslim_rtd_comp.jpg',dpi=320)
 plt.savefig('./figures/ecoslim_rtd_comp.svg',format='svg')
 plt.show()
 
-
+"""
 
 
 
@@ -557,22 +558,23 @@ plt.show()
 
 # pick a water years
 #yr = [2017, 2018, 2019, 2020, 2021]
-yr = [2019,2020]
+yr = [2019, 2020]
 wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['Date'] < '{}-10-01'.format(i)), True, False) for i in yr]
 wy_inds   = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
 wy_inds   = np.concatenate(((wy_inds)))
 
-time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
+#time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) + [model_time_samp]
 time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) #+ [model_time_samp]
 
-
 wells = ['PLM1','PLM7','PLM6']
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,4.2))
-fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.35)
+
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(2.8,4.2))
+fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.32)
 for i in range(3):
     # Get the data
-    w = wells[i]
-    tau_   = []
+    w    = wells[i]
+    ax1  = ax[i]
+    tau_ = []
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
@@ -584,14 +586,14 @@ for i in range(3):
             rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
-        ax1 = ax[i]
-        # Plot the Age CDF 
-        if model_time == model_time_samp:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
-            ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
         else:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
-            ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
+            if model_time == model_time_samp:
+                pass
+                #ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+                #ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+            else:
+                ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
+                ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
     #
     # Replot the middle one in red?
     mid_ind = np.where(tau_==np.sort(np.array(tau_))[len(tau_)//2])[0][0]
@@ -604,19 +606,20 @@ for i in range(3):
         rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
     except ValueError:
         pass
-    ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
-    ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
-    #
+    else:
+        ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+        ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
     # Clean up 
     if i == 1:
         ax1.set_ylabel('CDF\n{}'.format(w))
     else:
         ax1.set_ylabel('{}'.format(w))
-    matcks = ax[i].get_xticks()
-    ax[i].xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
-    ax[i].yaxis.set_major_locator(MultipleLocator(0.5))
-    ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
-    ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
+    #matcks = ax1.get_xticks()
+    #ax1.xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
+    ax1.minorticks_on()
+    ax1.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax1.tick_params(which='major', axis='both', length=4, width=1.25)
 ax[2].set_xlabel('Particle Ages (years)')    
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
@@ -631,11 +634,13 @@ plt.show()
 wells = ['X404', 'X494', 'X528']
 names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(3,4.2))
-fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.35)
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(2.8,4.2))
+fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.15, right=0.87, left=0.32)
 for i in range(3):
-    w = wells[i]
-    tau_   = []
+    # Get the data
+    w    = wells[i]
+    ax1  = ax[i]
+    tau_ = []
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
@@ -647,14 +652,14 @@ for i in range(3):
             rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
-        ax1 = ax[i]
-        # Plot the Age CDF 
-        if model_time == model_time_samp:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.75, zorder=6)
-            ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
         else:
-            ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
-            ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
+            if model_time == model_time_samp:
+                pass
+                #ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+                #ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+            else:
+                ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
+                ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
     #
     # Replot the middle one in red?
     mid_ind = np.where(tau_==np.sort(np.array(tau_))[len(tau_)//2])[0][0]
@@ -667,19 +672,20 @@ for i in range(3):
         rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
     except ValueError:
         pass
-    ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
-    ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
-    #
+    else:
+        ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+        ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
     # Clean up 
     if i == 1:
         ax1.set_ylabel('CDF\n{}'.format(names[i]))
     else:
         ax1.set_ylabel('{}'.format(names[i]))
-    matcks = ax[i].get_xticks()
-    ax[i].minorticks_on()
-    ax[i].yaxis.set_major_locator(MultipleLocator(0.5))
-    ax[i].yaxis.set_minor_locator(MultipleLocator(0.25))
-    ax[i].tick_params(which='major', axis='both', length=4, width=1.25)
+    #matcks = ax1.get_xticks()
+    #ax1.xaxis.set_minor_locator(MultipleLocator((matcks[1]-matcks[0])/2))
+    ax1.minorticks_on()
+    ax1.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax1.tick_params(which='major', axis='both', length=4, width=1.25)
 ax[2].set_xlabel('Particle Ages (years)')    
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.png',dpi=300)
 plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
@@ -725,11 +731,11 @@ for t in range(len(time_list_)):
         rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
     except ValueError:
         pass
-
-    # Fraction of sample that is less than 10 years
-    frac_young = rtd_df[rtd_df['Time']<younger]['wt'].sum()
-    #print (date_map.loc[model_time,'Date'])
-    ax.scatter(date_map.loc[model_time,'Date'], frac_young, c='black') 
+    else:
+        # Fraction of sample that is less than 10 years
+        frac_young = rtd_df[rtd_df['Time']<younger]['wt'].sum()
+        #print (date_map.loc[model_time,'Date'])
+        ax.scatter(date_map.loc[model_time,'Date'], frac_young, c='black') 
 ax.set_ylabel('Fraction Younger\n{} years'.format(int(younger)))
 loc = mdates.MonthLocator(bymonth=[10])
 #loc = mdates.MonthLocator(interval=2)
@@ -782,6 +788,77 @@ plt.show()
 
 
 
+
+
+
+
+
+
+
+
+
+
+#
+# FIHM Plots
+#
+
+wells = ['X494']
+names = ['PLM6 Soil']
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.5,2.3))
+fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.25, right=0.87, left=0.3)
+for i in range(len(wells)):
+    w    = wells[i]
+    ax1  = ax
+    tau_ = []
+    for t in range(len(time_list)):
+        model_time = time_list[t]
+        try:
+            rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+            tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+            tau_med = np.median(rtd_df['Time'])
+            tau_.append(tau)
+            # not sure here, some NANs where there are zero particles
+            rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+        except ValueError:
+            pass
+        else:
+            # Plot the Age CDF 
+            if model_time == model_time_samp:
+                pass
+                #ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.75, zorder=6)
+                #ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+            else:
+                ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='black', alpha=0.75, zorder=4)
+                ax1.axvline(tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
+    # Replot the middle one in red?
+    mid_ind = np.where(tau_==np.sort(np.array(tau_))[len(tau_)//2])[0][0]
+    model_time = time_list[mid_ind]
+    try:
+        rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+        tau = (rtd_df['Time'] * rtd_df['wt']).sum()
+        tau_med = np.median(rtd_df['Time'])
+        # not sure here, some NANs where there are zero particles
+        rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+    except ValueError:
+        pass
+    else:
+        ax1.plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+        ax1.axvline(tau, color='red', alpha=0.65, linestyle='--', zorder=5)
+    #
+    # Clean up 
+    if i == 0:
+        ax1.set_ylabel('CDF\n{}'.format(names[i]))
+    else:
+        ax1.set_ylabel('{}'.format(names[i]))
+    ax1.minorticks_on()
+    ax1.yaxis.set_major_locator(MultipleLocator(0.5))
+    ax1.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax1.tick_params(which='major', axis='both', length=4, width=1.25)
+ax1.set_xlabel('Particle Ages (years)')    
+plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.PLM6soil.png',dpi=300)
+#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
+plt.show()
 
 
 

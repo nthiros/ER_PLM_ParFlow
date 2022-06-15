@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import ticker
 import matplotlib.patches as patches
-plt.rcParams['font.size'] = 14
+plt.rcParams['font.size'] = 16
 
 
 import matplotlib
@@ -81,25 +81,28 @@ lK = np.log10(K)
 #
 cmap = matplotlib.cm.coolwarm
 normalize = matplotlib.colors.LogNorm(vmin=K.min(), vmax=K.max())
-normalize = matplotlib.colors.LogNorm(vmin=1.e-9, vmax=1.e-4)
+normalize = matplotlib.colors.LogNorm(vmin=1.e-8, vmax=1.e-4)
 
 
-fig, ax = plt.subplots(figsize=(4,6))
-fig.subplots_adjust(right=0.7)
+fig, ax = plt.subplots(figsize=(3,4))
+fig.subplots_adjust(left=0.4, right=0.6, top=0.97, bottom=0.05)
 for i in range(len(Z)-1):
     ax.fill_between(x=[0,1], y1=Z[i], y2=Z[i+1], color=cmap(normalize(K[i])))
 ax.invert_yaxis()
 ax.set_ylim(100,0)
-ax.minorticks_on()
+ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(5))
 
+ax.set_ylabel('Depth (m)', labelpad=0.05)
 ax.tick_params(axis='x',which='both',labelbottom=False, bottom=False)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
 
-cbax = fig.add_axes([0.71, 0.25, 0.05, 0.50])
-cb = matplotlib.colorbar.ColorbarBase(cbax, cmap=cmap, norm=normalize, orientation='vertical')#, format=formatter)
-cb.set_label('K (m/s)', rotation=270, labelpad=15)
+cbax = fig.add_axes([0.61, 0.15, 0.05, 0.7])
+cb = matplotlib.colorbar.ColorbarBase(cbax, cmap=cmap, norm=normalize, orientation='vertical')
+cb.set_label('K (m/s)', rotation=270, labelpad=25)
+plt.savefig('figures/perm_plot.png',dpi=300)
 plt.show()
 
 

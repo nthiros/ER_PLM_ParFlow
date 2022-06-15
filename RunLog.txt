@@ -16,7 +16,8 @@ RunB.0.veg0 -- same as above but homogeneous vegetation for CLM
 RunB.1 -- Exponential K with medium decay rate      -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10 
 RunB.2 -- Exponential K with low weathered shale K  -- wshale=5.605e-07, fshale_top=5.605e-07, fshale_bottom=5.605e-10
 RunB.3 -- Exponential K with high weathered shale K -- wshale=5.605e-06, fshale_top=5.605e-06, fshale_bottom=5.605e-10
-RunB.4 -- 2 layer model -- wshale=5.605e-6, fshale=5.605e-6
+RunB.4 -- Exponential K with high weathered shale K and high exponential decay rate
+                                                    -- wshale=5.605e-6, fshale_top=5.605e-6, fshale_bottom=5.605e-12
 
 RunC.0 -- 'Base' model with shallower (3m) soil layer, bedrock at (9m) depth
 RunC.1 -- Exponential K with med decay rate        -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10
@@ -25,7 +26,7 @@ RunC.2 -- Exponential K with low weathered shale K -- wshale=5.605e-07, fshale_t
 RunD.0 -- (2 layer model) Thin soil layer (2mbls) and bedrock at 4mbls 
        -- med  K bedrock -- wshale=5.605e-7, fshale=5.605e-7
 RunD.1 -- low  K bedrock -- wshale=5.605e-8, fshale=5.605e-8
-RunD.2 -- high K bedrock -- wshale=5.605e-6,  fhsale=5.605e-6
+RunD.2 -- high K bedrock -- wshale=5.605e-6, fhsale=5.605e-6
 
 
 
