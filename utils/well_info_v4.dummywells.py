@@ -98,8 +98,8 @@ Xpos = [404, 494, 528]
 
 
 top_screen = 0.1
-bot_screen = 3.0
-smp_depth  = 1.5
+bot_screen = 2.0
+smp_depth  = 1.0
 
 
 for i in range(len(Xpos)):
