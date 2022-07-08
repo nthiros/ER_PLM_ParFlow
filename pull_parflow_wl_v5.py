@@ -138,8 +138,8 @@ class pull_pfb_pressure():
 
 # Read in well info dataframe
 # Produced by well_info_v2.py
-pf_wells = pd.read_csv('../utils/wells_2_pf_v3b.csv', index_col='well')
-z_info   = pd.read_csv('../utils/plm_grid_info_v3b.csv') # these are cell centered values
+pf_wells = pd.read_csv('../ER_PLM_ParFlow/utils/wells_2_pf_v3b.csv', index_col='well')
+z_info   = pd.read_csv('../ER_PLM_ParFlow/utils/plm_grid_info_v3b.csv') # these are cell centered values
 
 
 

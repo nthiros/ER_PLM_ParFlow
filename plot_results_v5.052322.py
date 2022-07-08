@@ -377,7 +377,6 @@ prcp_sumd_cs = prcp_sumd_.groupby(by=['wy']).cumsum()
 ###
 fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.5,3))
 fig.subplots_adjust(top=0.98, bottom=0.12, left=0.20, right=0.94, hspace=0.2)
-
 ax = axes[1]
 notjan = prcp_summ_[prcp_summ_.index.month != 1]
 #ax.bar(prcp_summ_.index, prcp_summ_['prcp'], width=20.0, color='black', alpha=0.9) 
@@ -385,15 +384,19 @@ ax.bar(notjan.index, notjan['prcp'], width=20.0, color='black', alpha=0.9)
 jan = prcp_summ_[prcp_summ_.index.month == 1]
 ax.bar(jan.index, jan['prcp'], width=20.0, color='grey', alpha=1.0) 
 ax.set_ylabel('Precipitation\n(mm/month)')
+ax.yaxis.set_major_locator(MultipleLocator(50))
+ax.yaxis.set_minor_locator(MultipleLocator(25))
 
 ax = axes[0]
 ax.plot(prcp_sumd_cs.index, prcp_sumd_cs, color='black', lw=2.0)
 ax.set_ylabel('Cumulative\nPrecipitation\n(mm/year)')
 ax.tick_params(axis='x', labelbottom=False)
+ax.yaxis.set_major_locator(MultipleLocator(200))
+ax.yaxis.set_minor_locator(MultipleLocator(100))
 
 for i in [0,1]:
     ax = axes[i]
-    ax.minorticks_on()
+    #ax.minorticks_on()
     loc = mdates.MonthLocator(bymonth=[10])
     loc_min = mdates.MonthLocator(interval=1)
     ax.xaxis.set_major_locator(loc)
@@ -699,7 +702,6 @@ plt.show()
 # Fraction of young versus old water in the floodplain wells
 #
 #---------------------------
-
 #w = 'X528'
 w = 'X494'
 
@@ -716,7 +718,9 @@ wy_inds_  = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['D
 wy_inds   = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
 wy_inds   = np.concatenate(((wy_inds)))
 time_list = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))])
-time_list_ = time_list[::5]
+#time_list_ = time_list[::5]
+time_list_ = time_list[::1]
+
 
 fig, ax = plt.subplots(figsize=(6.5,2.2))
 fig.subplots_adjust(top=0.86, bottom=0.15, left=0.20, right=0.94, hspace=0.2)
@@ -739,6 +743,7 @@ for t in range(len(time_list_)):
 ax.set_ylabel('Fraction Younger\n{} years'.format(int(younger)))
 loc = mdates.MonthLocator(bymonth=[10])
 #loc = mdates.MonthLocator(interval=2)
+ax.set_ylim(0.0,1.0)
 loc_min = mdates.MonthLocator(interval=1)
 ax.xaxis.set_major_locator(loc)
 ax.xaxis.set_minor_locator(loc_min)
@@ -779,16 +784,10 @@ ax.set_ylabel('Age (years)')
 ax.tick_params(axis='both', length=4, width=1.1)
 ax.grid()
 ax.minorticks_on()
+ax.set_xlim(0,850)
 plt.savefig('./figures/rtd_vs_inf.jpg', dpi=300)
 plt.savefig('./figures/rtd_vs_inf.svg', format='svg')
 plt.show()
-
-
-
-
-
-
-
 
 
 
