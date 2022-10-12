@@ -31,7 +31,6 @@ for i in range(nsteps):
         et_out_dict[i] = et_out
     else:
         print ('timstep {} does not exists'.format(i))
-
 # Save it
 with open('et_out_dict.pk', 'wb') as f:
     pk.dump(et_out_dict, f)        

@@ -1,6 +1,7 @@
+# Cleanup on 09/29/2022
 # Makes a bunch of plots of the ParFLOW-CLM land surface dynamics
 # 
-# Need to run these scripts first...
+# Need to run these scripts first
 # Run these on the server where all the output files are located
 # -- et_to_pickle.py
 # -- vel_decomp_2_rech.py
@@ -11,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pickle as pk
 import os
+import pdb
 
 from parflowio.pyParflowio import PFData
 #import pyvista as pv
@@ -33,11 +35,11 @@ plt.rcParams['font.size'] = 14
 # Define some variables
 #
 #---------------------------
-nsteps = 1794
+nsteps = 1794  # Daily Outputs
 
 yrs = [2017,2018,2019,2020,2021] # Calender years within timeseries
 
-yr = 2019 # year for plotting
+yr = 2020 # year for plotting
 
 fpath = os.path.join('./','clm_figs_wy{}'.format(yr))
 if not os.path.exists(fpath):
@@ -54,11 +56,12 @@ if not os.path.exists(fpath):
 # Read in pickles with all data 
 #
 # Generated using 'et_to_pickle.py'
-clm_out = pd.read_pickle('parflow_out/clm_out_dict.pk') # this is from the CLM output files
-#et_out  = pd.read_pickle('parflow_out/et_out_dict.pk') # This one does not work as well -- not sure why
-# Generated using 'vel_decomp_2_rech.py'
-pf = pd.read_pickle('parflow_out/pf_out_dict.pk')       # this is from parflow files using pftools
-et_out = pf['et']
+clm_out_ = pd.read_pickle('parflow_out/clm_out_dict.pk') # this is from the CLM output files
+# Reset timestep keys to start with zero index
+clm_out = {i: v for i, v in enumerate(clm_out_.values())}
+clm_keys = list(clm_out[0].keys())
+
+pf = pd.read_pickle('parflow_out/pf_out_dict.pk') # this is from parflow files using pftools
 
 
 #
@@ -102,7 +105,7 @@ find_date_ind = lambda d: (dates==d).argmax()
 # Water year indexes for et_out and clm_out
 wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs]
 wy_inds   = np.array([wy_inds_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
-wy_map_et = np.column_stack((list(et_out.keys()), wy_inds.T))
+wy_map_et = np.column_stack((list(clm_out.keys()), wy_inds.T))
 
 wy_17_inds = wy_map_et[wy_map_et[:,1] == 2017][:,0]
 wy_18_inds = wy_map_et[wy_map_et[:,1] == 2018][:,0]
@@ -110,19 +113,22 @@ wy_19_inds = wy_map_et[wy_map_et[:,1] == 2019][:,0]
 wy_20_inds = wy_map_et[wy_map_et[:,1] == 2020][:,0]
 wy_21_inds = wy_map_et[wy_map_et[:,1] == 2021][:,0]
 
+wy_inds_helper = {2017:wy_17_inds,2018:wy_18_inds,2019:wy_19_inds,2020:wy_20_inds,2021:wy_21_inds}
+drng = np.arange(len(wy_inds_helper[yr]))
+
 
 #
 # MET Forcing Data -- note, this is at 3 hours
 # Units in parflow manual pg. 136
 #
 fmet      = './MET/met.2017-2021.3hr.txt'
-
 met       = pd.read_csv(fmet, delim_whitespace=True, names=['rad_s','rad_l','prcp','temp','wnd_u','wnd_v','press','vap'])
 tstart    = pd.to_datetime('2016-10-01 00', format='%Y-%m-%d %H')
 tend      = pd.to_datetime('2021-08-30 12', format='%Y-%m-%d %H') # Water year 21 is not over yet
 hours     = pd.DatetimeIndex(pd.Series(pd.date_range(tstart, tend, freq='3H')))
 hours     = hours[~((hours.month == 2) & (hours.day == 29))] # No leap years
 met.index = hours
+
 
 # Chunk into water years
 wy_inds_  = [np.where((hours > '{}-09-30'.format(i-1)) & (hours < '{}-10-01'.format(i)), True, False) for i in yrs]
@@ -144,33 +150,13 @@ prcp_sumy_cs['wy'] = prcp_summ['wy']
 
 # cumulative sum using daily precip sums
 prcp_sumd = pd.DataFrame((met['prcp']*3600*3).groupby(pd.Grouper(freq='D')).sum())
+prcp_sumd  = prcp_sumd[~((prcp_sumd.index.month == 2) & (prcp_sumd.index.day == 29))] # No leap years
 wy_  = [np.where((prcp_sumd.index > '{}-09-30'.format(i-1)) & (prcp_sumd.index < '{}-10-01'.format(i)), True, False) for i in yrs]  
 wy   = np.array([wy_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
 prcp_sumd['wy'] = wy
 # annual cumulative
 prcp_sumy_cs_  = prcp_sumd.groupby(prcp_sumd['wy']).cumsum()
 prcp_sumy_cs_['wy'] = prcp_sumd['wy']
-
-
-
-
-#
-# Calculate the sum of the ET over each domain column
-# ET at land surface over the full hillslope
-#
-et_mhr   = np.array([et_out[i].sum(axis=0) for i in range(1,len(et_out)+1)])[:,0,:]
-et_mmday = et_mhr*1000*24/3 
-#et_mmday = et_mhr*1000/3 
-
-# convert to dict to make life easier
-et_df    = pd.DataFrame(et_mmday)
-et_df.index = dates
-
-wy_daily_ = [np.where((et_df.index > '{}-09-30'.format(i-1)) & (et_df.index < '{}-10-01'.format(i)), True, False) for i in yrs]  
-wy_daily  = np.array([wy_daily_[i]*yrs[i] for i in range(len(yrs))]).sum(axis=0)
-
-et_df.insert(loc=0, column='wy', value=wy_daily) # ! et_df is the et from the parflow.pfb files NOT the clm output files
-
 
 
 
@@ -185,92 +171,148 @@ et_df.insert(loc=0, column='wy', value=wy_daily) # ! et_df is the et from the pa
 #
 month_map  = {1:'Oct',2:'Nov',3:'Dec',4:'Jan',5:'Feb',6:'Mar',7:'Apr',8:'May',9:'Jun',10:'Jul',11:'Aug',12:'Sep'}
 months     = list(month_map.values())
+months     = ['O','N','D','J','F','M','A','M','J','J','A','S']
 months_num = np.array(list(month_map.keys()))
 
 days_ = prcp_sumd[prcp_sumd['wy']==yr].index
 first_month = [(days_.month==i).argmax() for i in [10,11,12,1,2,3,4,5,6,7,8,9]]
 
-wy_inds_helper = {2017:wy_17_inds,2018:wy_18_inds,2019:wy_19_inds,2020:wy_20_inds,2021:wy_21_inds}
-drng = np.arange(len(wy_inds_helper[yr]))
 
 
-pull_wy     = lambda df, wy: pd.DataFrame(df[df['wy']==wy])
 pull_prcp   = lambda df, wy: pd.DataFrame(df[df['wy']==wy]['prcp'])
-#pull_et     = lambda wy: pd.DataFrame([(clm_out[i]['qflx_evap_tot'] + clm_out[i]['qflx_tran_veg']) for i in wy_inds_helper[wy]]).T
-pull_et     = lambda wy: pd.DataFrame([(clm_out[i]['qflx_evap_tot']) for i in wy_inds_helper[wy]]).T
-pull_infil  = lambda wy: pd.DataFrame([(clm_out[i]['qflx_infl']) for i in wy_inds_helper[wy]]).T
-pull_swe    = lambda wy: pd.DataFrame([(clm_out[i]['swe_out']) for i in wy_inds_helper[wy]]).T
-pull_grndT  = lambda wy: pd.DataFrame([(clm_out[i]['t_grnd']-273.15) for i in wy_inds_helper[wy]]).T
-pull_soilT  = lambda wy: pd.DataFrame([(clm_out[i]['t_soil_0']-273.15) for i in wy_inds_helper[wy]]).T
-
+def pull_wy(df, wy, var):
+    df_    = pd.DataFrame([(clm_out[i][var]) for i in wy_inds_helper[wy]]).T
+    head_  = dates[wy_inds_helper[wy]]
+    df_.columns = head_
+    return df_
 
 
 
 
 #
-# MET Forcing -- precipitation
+# MET Forcing -- precipitation and SWE
 #
-pp1 = pull_prcp(prcp_summ, 2019)
-pp2 = pull_prcp(prcp_summ, 2020)
-pp3 = pull_prcp(prcp_sumy_cs, 2019)
-pp4 = pull_prcp(prcp_sumy_cs, 2020)
 
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(5,4))
-fig.subplots_adjust(bottom=0.14, top=0.92, left=0.2, right=0.96, hspace=0.45)
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,4))
+fig.subplots_adjust(bottom=0.14, top=0.9, left=0.18, right=0.9, hspace=0.3)
+# Monthly Precip Bar Plots
 ax = axes[1]
-ax.bar(months_num-0.1, pp1['prcp'].to_numpy(), width=0.18, color='C0', fill='C0', hatch=None,  label='WY2019')
-ax.bar(months_num+0.1, pp2['prcp'].to_numpy(), width=0.18, color='C1', fill='C1', hatch='///', label='WY2020')
-
-ax.set_xlim([0.5, 12.5])
-ax.set_xticks(list(months_num))
-ax.set_xticklabels(labels=months)
-ax.tick_params(axis='x', top=False, labelrotation=45, pad=0.2)
-ax.set_ylim(0,150)
-ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-ax.tick_params(axis='y', which='both', right=True)
-ax.grid()
-ax.set_ylabel('Monthly\nPrecip. (mm)')
-
+ofs = -0.25
+for i in range(len(yrs)):
+    pp = pull_prcp(prcp_summ, yrs[i])
+    ax.bar(np.arange(len(pp))+ofs, pp['prcp'].to_numpy(), width=0.125, color='C{}'.format(i), fill='C{}'.format(i), hatch=None, label='WY{}'.format(yrs[i]))
+    ofs += 0.125
+    #ax.plot(np.arange(len(pp)+1), [0]+pp['prcp'].to_list(), color='C{}'.format(i), label='{}'.format(yrs[i]))
+#ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
+ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+ax.set_ylabel('P (mm/month)')
+ax.set_xlim([-0.5, 12.0])
 # cumulative precipitation on new axis
 ax = axes[0]
-#ax.plot(months_num, pull_wy(prcp_sumy_cs, 2019)['prcp'].to_numpy(), color='C0', ls='-',  lw=2.0, label='WY2019')
-#ax.plot(months_num, pull_wy(prcp_sumy_cs, 2020)['prcp'].to_numpy(), color='C1', ls='--', lw=2.0,  label='WY2020')
-ax.plot([0]+list(months_num), [0]+pp3['prcp'].to_list(), color='C0', ls='-',  lw=2.0,  label='WY2019')
-ax.plot([0]+list(months_num), [0]+pp4['prcp'].to_list(), color='C1', ls='--', lw=2.0,  label='WY2020')
-
-ax.set_xlim([0.0, 12.0])
-ax.set_xticks([0]+list(months_num))
-ax.set_xticklabels(labels=months+[''])
-ax.tick_params(axis='x', top=False, labelrotation=45, pad=0.2)
-#ax.set_ylim(0,150)
+for i in range(len(yrs)):
+    _pp = pull_prcp(prcp_sumy_cs, yrs[i])
+    ax.plot(np.arange(len(_pp)+1), [0]+_pp['prcp'].to_list(), color='C{}'.format(i), ls='-',  label='{}'.format(yrs[i]))
+#ax.set_ylim(0,600)
 ax.yaxis.set_major_locator(ticker.MultipleLocator(150))
 ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
-ax.tick_params(axis='y', which='both', right=True)
-ax.grid()
-
-ax.set_ylabel('Annual\nCumulative (mm)')
-ax.legend(handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
-plt.savefig(os.path.join(fpath, 'precip.png'),dpi=300)
+ax.tick_params(axis='y', which='both', right=True, labelright=True)
+ax.set_ylabel('Cumulative P\n(mm/year)')
+#ax.set_xlim([0.0, 12.0])
+ax.set_xlim([-0.5, 12.0])
+# Cleanup
+for i in [0,1]:
+    axes[i].set_xticks([0]+list(months_num))
+    axes[i].set_xticklabels(labels=months+[''])
+    axes[i].tick_params(axis='x', top=False, labelrotation=0, pad=0.5)
+    axes[i].grid()
+    axes[i].tick_params(axis='y', which='both', right=True)
+axes[0].legend(ncol=len(yrs), handlelength=0.75, labelspacing=0.15, columnspacing=0.7, handletextpad=0.3, loc='upper center', bbox_to_anchor=(0.5, 1.35))
+plt.savefig(os.path.join('./figures', 'CLM_precip.png'),dpi=300)
 plt.show()
 
 
 
 
+#
+# CLM SWE and ET
+#
+def accum_swe(wy):
+    swe_accum = 0
+    swe_accum_list = []
+    swe = pull_wy(clm_out, wy, 'swe_out').mean(axis=0)
+    for i in range(len(swe)-1):
+        if (swe[i+1]-swe[i]) > 0.0:
+            swe_accum += swe[i+1]-swe[i]
+        swe_accum_list.append(swe_accum)
+    return swe_accum_list
 
 
-"""# Compare ET 
-fig, ax = plt.subplots()
-plt.plot(drng, pull_et(2019).mean(axis=0)*86400/3, label='CLM')
-plt.plot(drng, pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1), ls='--', label='ParFlow')
+# Plot with SWE and ET
+fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(7,6))
+fig.subplots_adjust(bottom=0.1, top=0.9, left=0.18, right=0.9, hspace=0.3)
+# ET
+for i in range(len(yrs)):
+    et   = pull_wy(clm_out, yrs[i], 'qflx_evap_tot').mean(axis=0) * 60*60*24 
+    _et  = et.groupby(by=pd.Grouper(freq='M')).sum()
+    # ET Cumulative Annual Sum
+    _et_cs = _et.cumsum()
+    axes[1].plot(np.arange(len(_et_cs)+1), [0]+_et_cs.to_list(), color='C{}'.format(i))
+    axes[1].set_ylabel('Cumulative ET\n(mm/year)')
+    axes[1].tick_params(axis='y', which='both', labelright=True)
+    #
+    axes[2].plot(np.arange(len(_et)), _et, color='C{}'.format(i))
+    axes[2].set_ylabel('ET (mm/month)')
+    for i in [1,2]:
+        axes[i].set_xticks([0]+list(months_num))
+        axes[i].set_xticklabels(labels=months+[''])
+        axes[i].set_xlim([-0.5, 12.0]) 
+# SWE
+for i in range(len(yrs)):
+    _swe = accum_swe(yrs[i])
+    swe  = pull_wy(clm_out, yrs[i], 'swe_out').mean(axis=0)
+    axes[0].plot(np.arange(len(swe)), swe, color='C{}'.format(i), label='{}'.format(yrs[i]))
+    axes[0].set_xlim(-10,365)
+    axes[0].set_xticks(first_month+[365])
+    axes[0].set_xticklabels(labels=months+[''])
+    axes[0].set_ylabel('SWE (mm)')
+# Cleanup
+for i in [0,1,2]:
+    axes[i].grid()
+    axes[i].minorticks_on()
+    axes[i].tick_params(axis='x', labelrotation=0, pad=0.5)
+    axes[i].tick_params(axis='x', which='minor', top=False, bottom=False)
+    axes[i].tick_params(axis='y', which='both', right=True)
+axes[0].legend(ncol=len(yrs), handlelength=0.75, labelspacing=0.15, columnspacing=0.7, handletextpad=0.3, loc='upper center', bbox_to_anchor=(0.5, 1.35))
+plt.savefig(os.path.join('./figures', 'CLM_SWE_ET.png'),dpi=300)
+plt.show()
+    
 
-ax.axhline(y=0.0, linestyle='--', color='black')
-ax.set_ylabel('ET (mm/day)')
-ax.set_xlim(0,366)
-ax.set_xticks(first_month)
-ax.set_xticklabels(labels=months)
-ax.tick_params(axis='x', top=True, labelrotation=45, pad=0.001)
-ax.legend()
-plt.show()"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#------------ 
+# Not sure what to do with stuff below
+# Makes a bunch of plots for two years only
+#------------
+
+
+
+
+
+
 
 
 
@@ -284,31 +326,26 @@ plt.show()"""
 #
 # CLM ET
 #
-# CLM binary output
-et1 = pull_et(2019).mean(axis=0)*86400 / 3 
-et2 = pull_et(2020).mean(axis=0)*86400 / 3 
-
-# parflow.pfb files and pftools
-#e1 = pull_wy(et_df, 2019).iloc[:,1:].mean(axis=1) 
-#et2 = pull_wy(et_df, 2020).iloc[:,1:].mean(axis=1)
+et_20 = pull_wy(clm_out, 2019, 'qflx_evap_tot').mean(axis=0) * 60*60*24 
+et_21 = pull_wy(clm_out, 2020, 'qflx_evap_tot').mean(axis=0) * 60*60*24 
 
 #
 # Precipitation
 #
-ppd1 = pull_prcp(prcp_sumd,2019)['prcp'].to_numpy().cumsum()
-ppd2 = pull_prcp(prcp_sumd,2020)['prcp'].to_numpy().cumsum()
+ppd_20 = pull_prcp(prcp_sumd,2019)['prcp'].to_numpy().cumsum()
+ppd_21 = pull_prcp(prcp_sumd,2020)['prcp'].to_numpy().cumsum()
 
 #
 # CLM infiltration
 #
-inf1 = pull_infil(2019).mean(axis=0)*86400 / 3
-inf2 = pull_infil(2020).mean(axis=0)*86400 / 3
+inf_20 = pull_wy(clm_out, 2019, 'qflx_infl').mean(axis=0) * 60*60*24 
+inf_21 = pull_wy(clm_out, 2020, 'qflx_infl').mean(axis=0) * 60*60*24 
 
 #
 # CLM rech = infil. - ET
 #
-rech1 = 1 * (inf1.to_numpy() - et1.to_numpy())
-rech2 = 1 * (inf2.to_numpy() - et2.to_numpy())
+rech_20 = 1 * (inf_20.to_numpy() - et_20.to_numpy())
+rech_21 = 1 * (inf_21.to_numpy() - et_21.to_numpy())
 
 
 #
@@ -317,29 +354,29 @@ rech2 = 1 * (inf2.to_numpy() - et2.to_numpy())
 def accum_swe(wy):
     swe_accum = 0
     swe_accum_list = []
-    swe = pull_swe(wy).mean(axis=0)
+    swe = pull_wy(clm_out, wy, 'swe_out').mean(axis=0)
     for i in range(365-1):
         if (swe[i+1]-swe[i]) > 0.0:
             swe_accum += swe[i+1]-swe[i]
         swe_accum_list.append(swe_accum)
     return swe_accum_list
         
-swe1 = pull_swe(2019).mean(axis=0)
-swe2 = pull_swe(2020).mean(axis=0)
+swe_20 = pull_wy(clm_out, 2019, 'swe_out').mean(axis=0)
+swe_21 = pull_wy(clm_out, 2020, 'swe_out').mean(axis=0)
 
-swe1a = accum_swe(2019)
-swe2a = accum_swe(2020)
+swe_20_ = accum_swe(2019)
+swe_21_ = accum_swe(2020)
 
 
 
 #
 # Stacked Daily Values
 #
-prcp_daily_2019 = pull_prcp(prcp_sumd, 2019)
-prcp_daily_2020 = pull_prcp(prcp_sumd, 2020)
+prcp_daily_20 = pull_prcp(prcp_sumd, 2019)
+prcp_daily_21 = pull_prcp(prcp_sumd, 2020)
 
-vlist1  = [prcp_daily_2019, swe1, et1, inf1, rech1]
-vlist2  = [prcp_daily_2020, swe2, et2, inf2, rech2]
+vlist1  = [prcp_daily_20, swe_20, et_20, inf_20, rech_20]
+vlist2  = [prcp_daily_21, swe_21, et_21, inf_21, rech_21]
 vlist1_ = ['Precipitation\n(mm/day)', 'SWE\n(mm)', 'ET\n(mm/day)', 'Infiltration\n(mm/day)', 'Recharge\n(mm/day)']
 
 
@@ -348,8 +385,8 @@ fig.subplots_adjust(bottom=0.09, top=0.92, left=0.2, right=0.98, hspace=0.2)
 # Plot each timeseries as own subuplot
 for i in range(len(vlist1)):
     ax = axes[i]
-    ax.plot(np.arange(len(vlist1[i])), vlist1[i], lw=1.5, color='C0', label='WY2019')
-    ax.plot(np.arange(len(vlist2[i])), vlist2[i], lw=1.5, color='C1', label='WY2020')
+    ax.plot(np.arange(len(vlist1[i])), vlist1[i], lw=1.5, color='C0', label='WY2020')
+    ax.plot(np.arange(len(vlist2[i])), vlist2[i], lw=1.5, color='C1', label='WY2021')
     # Cleanup
     ax.set_xlim(0,366)
     ax.set_xticks(first_month)
@@ -377,11 +414,11 @@ plt.show()
 #
 # Stacked Annual Values
 #
-vlist1  = [swe1a, et1.cumsum(), inf1.cumsum(), rech1.cumsum()]
-vlist2  = [swe2a, et2.cumsum(), inf2.cumsum(), rech2.cumsum()]
+vlist1  = [swe_20_, et_20.cumsum(), inf_20.cumsum(), rech_20.cumsum()]
+vlist2  = [swe_21_, et_21.cumsum(), inf_21.cumsum(), rech_21.cumsum()]
 vlist1_ = ['SWE\n(mm/year)', 'ET\n(mm/year)', 'Infiltration\n(mm/year)', 'Recharge\n(mm/year)']
 
-fig, axes = plt.subplots(nrows=len(vlist1), ncols=1, figsize=(5,5.5))
+fig, axes = plt.subplots(nrows=len(vlist1), ncols=1, figsize=(6.0,5.5))
 #fig.subplots_adjust(bottom=0.08, top=0.93, left=0.2, right=0.98, hspace=0.65)
 fig.subplots_adjust(bottom=0.09, top=0.90, left=0.2, right=0.98, hspace=0.2)
 # Plot each timeseries as own subuplot
@@ -390,8 +427,8 @@ for i in range(len(vlist1)):
     ax.plot(np.arange(len(vlist1[i])), vlist1[i], lw=2.0, color='C0', label='WY2019' if i==0 else '')
     ax.plot(np.arange(len(vlist2[i])), vlist2[i], lw=2.0, color='C1', label='WY2020' if i==0 else '')
     # Add Precipitation
-    ax.plot(np.arange(len(prcp_daily_2019.cumsum())), prcp_daily_2019.cumsum(), lw=1.5, ls='--', color='C0', label='Precip.' if i==1 else '')
-    ax.plot(np.arange(len(prcp_daily_2020.cumsum())), prcp_daily_2020.cumsum(), lw=1.5, ls='--', color='C1')
+    ax.plot(np.arange(len(prcp_daily_20.cumsum())), prcp_daily_20.cumsum(), lw=1.5, ls='--', color='C0', label='Precip.' if i==1 else '')
+    ax.plot(np.arange(len(prcp_daily_21.cumsum())), prcp_daily_21.cumsum(), lw=1.5, ls='--', color='C1')
     # Cleanup
     ax.set_xlim(0,366)
     ax.set_xticks(first_month)
@@ -403,8 +440,9 @@ for i in range(len(vlist1)):
         ax.tick_params(axis='x', top=True, labelbottom=False, pad=0.001)
     axes[0].tick_params(axis='x', top=True, labelrotation=45, pad=0.001, labeltop=True)
     ax.tick_params(axis='y', which='both', right=True)
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(200))
-    ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
+    #ax.yaxis.set_major_locator(ticker.MultipleLocator(500))
+    #ax.yaxis.set_minor_locator(ticker.MultipleLocator(100))
+    ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
     ax.set_ylabel(vlist1_[i])
     ax.grid()
 #axes[0].legend(loc='center', ncol=2, bbox_to_anchor=(0.5, 1.27), handlelength=1.5, labelspacing=0.25, handletextpad=0.5)
@@ -417,10 +455,183 @@ plt.show()
 
 
 
+
+
+#
+# 
+# Simpler Plots
+#
+#
+fpath2 = os.path.join('./','parflow_et_results')
+if not os.path.exists(fpath2):
+    os.makedirs(fpath2)
+
+# 
+# Daily
+#
+prcp_20_day = pull_prcp(prcp_sumd, 2019)
+prcp_21_day = pull_prcp(prcp_sumd, 2020)
+
+
+fig, axes = plt.subplots(nrows=2,ncols=1, figsize=(5,5))
+fig.subplots_adjust(top=0.96, bottom=0.1, left=0.25, right=0.96, hspace=0.3)
+ax = axes[0]
+ax.plot(np.arange(len(prcp_20_day)), prcp_20_day, color='C0', label='WY2020')
+ax.plot(np.arange(len(prcp_21_day)), prcp_21_day, color='C1', label='WY2021')
+ax.set_ylabel('Precipitation\n(mm/day)')
+
+ax = axes[1]
+ax.plot(np.arange(len(et_20)), et_20, color='C0', label='WY2020')
+ax.plot(np.arange(len(et_21)), et_21, color='C1', label='WY2021')
+ax.set_ylabel('ET\n(mm/day)')
+
+# clean-up
+for ax in axes:
+    ax.set_xticks(first_month)
+    ax.set_xticklabels(labels=months)
+    ax.tick_params(axis='x', labelrotation=45, pad=0.001)
+    ax.set_ylim(-1, 21)
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(2.5))
+    ax.tick_params(axis='y', which='both', right=True)
+    ax.margins(x=0.01)
+axes[1].legend(loc='best', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)  
+plt.savefig(os.path.join(fpath2, 'pf_daily_et.png'),dpi=300)
+plt.show()
+
+# save dataframes
+daily_df_20 = pd.concat((prcp_20_day, et_20), axis=1)
+daily_df_20.columns = ['precip mm/day', 'et mm/day']
+daily_df_20.index.name = 'date'
+#daily_df_20.to_csv(os.path.join(fpath2, 'pf_daily_2020.csv'), index=True)
+
+daily_df_21 = pd.concat((prcp_21_day, et_21), axis=1)
+daily_df_21.columns = ['precip mm/day', 'et mm/day']
+daily_df_21.index.name = 'date'
+
+daily_df = pd.concat((daily_df_20, daily_df_21))
+
+#daily_df_21.to_csv(os.path.join(fpath2, 'pf_daily_2021.csv'), index=True)
+
+
+
+#
+# Monthly 
+#
+et_20_month = et_20.groupby(pd.Grouper(freq='M')).sum()
+et_21_month = et_21.groupby(pd.Grouper(freq='M')).sum()
+
+prcp_20_month = prcp_summ.loc[prcp_summ['wy']==2020, 'prcp']
+prcp_21_month = prcp_summ.loc[prcp_summ['wy']==2021, 'prcp']
+
+fig, axes = plt.subplots(nrows=2,ncols=1, figsize=(5,5))
+fig.subplots_adjust(top=0.96, bottom=0.1, left=0.25, right=0.96, hspace=0.3)
+ax = axes[0]
+ax.plot(np.arange(len(prcp_20_month)), prcp_20_month, marker='o', color='C0', label='WY2020')
+ax.plot(np.arange(len(prcp_21_month)), prcp_21_month, marker='o', color='C1', label='WY2021')
+ax.set_ylabel('Precipitation\n(mm/month)')
+
+ax = axes[1]
+ax.plot(np.arange(len(et_20_month)), et_20_month, marker='o', color='C0', label='WY2020')
+ax.plot(np.arange(len(et_21_month)), et_21_month, marker='o', color='C1', label='WY2021')
+ax.set_ylabel('ET\n(mm/month)')
+
+# clean-up
+for ax in axes:
+    ax.set_xticks(np.arange(len(prcp_20_month)))
+    ax.set_xticklabels(labels=months)
+    ax.tick_params(axis='x', labelrotation=45, pad=0.001)
+    ax.set_ylim(-10, 110)
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+    ax.tick_params(axis='y', which='both', right=True)
+    ax.margins(x=0.05)
+axes[1].legend(loc='best', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)    
+plt.savefig(os.path.join(fpath2, 'pf_monthly_et.png'),dpi=300)
+plt.show()
+
+
+# save dataframes
+monthly_df_20 = pd.concat((prcp_20_month, et_20_month), axis=1)
+monthly_df_20.columns = ['precip mm/month', 'et mm/month']
+monthly_df_20.index.name = 'date'
+#monthly_df_20.to_csv(os.path.join(fpath2, 'pf_monthly_2020.csv'), index=True)
+
+monthly_df_21 = pd.concat((prcp_21_month, et_21_month), axis=1)
+monthly_df_21.columns = ['precip mm/month', 'et mm/month']
+monthly_df_21.index.name = 'date'
+#monthly_df_21.to_csv(os.path.join(fpath2, 'pf_monthly_2021.csv'), index=True)
+
+monthly_df = pd.concat((monthly_df_20, monthly_df_21))
+
+
+#
+# Annual Cumulative 
+#
+et_20_annual = et_20.cumsum()
+et_21_annual = et_21.cumsum()
+
+prcp_20_annual = pull_prcp(prcp_sumd, 2020).cumsum()
+prcp_21_annual = pull_prcp(prcp_sumd, 2021).cumsum()
+
+fig, axes = plt.subplots(nrows=2,ncols=1, figsize=(5,5))
+fig.subplots_adjust(top=0.96, bottom=0.1, left=0.25, right=0.96, hspace=0.3)
+ax = axes[0]
+ax.plot(np.arange(len(prcp_20_annual)), prcp_20_annual, color='C0', lw=2.0, label='WY2020')
+ax.plot(np.arange(len(prcp_21_annual)), prcp_21_annual, color='C1', lw=2.0, label='WY2021')
+ax.set_ylabel('Precipitation\n(mm/year)')
+
+ax = axes[1]
+ax.plot(np.arange(len(et_20_annual)), et_20_annual, color='C0', lw=2.0, label='WY2020')
+ax.plot(np.arange(len(et_21_annual)), et_21_annual, color='C1', lw=2.0, label='WY2021')
+ax.set_ylabel('ET\n(mm/year)')
+
+# clean-up
+for ax in axes:
+    ax.set_xticks(first_month)
+    ax.set_xticklabels(labels=months)
+    ax.tick_params(axis='x', labelrotation=45, pad=0.001)
+    ax.set_ylim(-1, 550)
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
+    ax.tick_params(axis='y', which='both', right=True)
+    ax.margins(x=0.01)
+axes[1].legend(loc='best', handlelength=1.0, labelspacing=0.25, handletextpad=0.1)  
+plt.savefig(os.path.join(fpath2, 'pf_annual_et.png'),dpi=300)
+plt.show()
+
+
+# save dataframes
+annual_df_20 = pd.concat((prcp_20_annual, et_20_annual), axis=1)
+annual_df_20.columns = ['precip_cumulative mm/year', 'et_cumalative mm/year']
+annual_df_20.index.name = 'date'
+#annual_df_20.to_csv(os.path.join(fpath2, 'pf_annual_2020.csv'), index=True)
+
+annual_df_21 = pd.concat((prcp_21_annual, et_21_annual), axis=1)
+annual_df_21.columns = ['precip_cumulative mm/year', 'et_cumalative mm/year']
+annual_df_21.index.name = 'date'
+#annual_df_21.to_csv(os.path.join(fpath2, 'pf_annual_2021.csv'), index=True)
+
+annual_df = pd.concat((annual_df_20, annual_df_21))
+
+
+# Write to file
+with pd.ExcelWriter(os.path.join(fpath2, 'parflow_et_results.xlsx')) as writer:
+    daily_df.to_excel(writer, sheet_name='daily', index=True)
+    monthly_df.to_excel(writer, sheet_name='monthly', index=True)
+    annual_df.to_excel(writer, sheet_name='annual', index=True)
+
+
+
+
+
+
+
+
 #
 # Plots that Integrate over both space and time
 #
-et_ = pull_et(yr).to_numpy().ravel() * 86400/3
+et_ = et_20 
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
 ax.hist(x=et_, bins=50, density=True)
@@ -432,7 +643,7 @@ plt.savefig(os.path.join(fpath, 'et_distribution.png'),dpi=300)
 plt.show()
 #
 #
-inf_ = pull_infil(yr).to_numpy().ravel()*86400 / 3
+inf_ = inf_20
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
 ax.hist(x=inf_, bins=50, density=True)
@@ -444,7 +655,7 @@ plt.savefig(os.path.join(fpath, 'inf_distribution.png'),dpi=300)
 plt.show()
 #
 #
-rech_ = inf_ - et_
+rech_ = inf_20 - et_20
 fig, ax = plt.subplots(figsize=(3.5, 2.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.22, right=0.95, hspace=0.3)
 ax.hist(x=rech_, bins=50, density=True)
@@ -504,13 +715,33 @@ plt.savefig(os.path.join(fpath,'X_points_locs.png'), dpi=300)
 plt.show()
 
 
+# CLM plant veg plots
+fig, ax = plt.subplots(figsize=(6,2))
+ax.scatter(xrng, topo, ls='-', marker=None, s=1.0, c=np.array(vind)/np.array(vind).max(), cmap=cmap_cust)
+# Add points
+#for j in range(len(x_pnts)):
+#    ax.axvline(x_pnts[j]*1.5125, color=cc[j], ls='--', lw=2.0)
+ax.set_ylabel('Z (m)')
+ax.minorticks_on()
+ax.tick_params(axis='x', which='both', top=True, bottom=True)
+ax.tick_params(axis='y', which='both', left=True, right=True)
+ax.set_xlim(0, xrng.max())
+ax.set_xlabel('Distance (m)')
+fig.tight_layout()
+plt.savefig(os.path.join(fpath,'CLM_veg.png'), dpi=300)
+plt.show()
+
+
+
+
+
 
 #--------------------------------------------------------
 #
 # ET
 #
 #--------------------------------------------------------
-et = pull_et(yr)*86400 / 3
+et = pull_et(yr)*86400 
 et.columns = np.arange(365)
 
 # Testing with parflow ET, rather than CLM ET
@@ -525,7 +756,7 @@ et.columns = np.arange(365)
 # Infiltration
 #
 #--------------------------------------------------------
-inf = pull_infil(yr)*86400 / 3
+inf = pull_infil(yr)*86400 
 inf.columns = np.arange(365)
 
 
@@ -534,7 +765,7 @@ inf.columns = np.arange(365)
 # Rech = Infiltration - ET
 #
 #--------------------------------------------------------
-inf = pull_infil(yr)*86400/3
+inf = pull_infil(yr)*86400
 inf.columns = np.arange(365)
 
 rech = inf - et

@@ -1,7 +1,6 @@
-
 Directories:
 
-NOTE: RunB.0 is the mint directly as of 1/5/2021
+NOTE: RunB.0.mint is the mint directly as of 04/19/2022
 
 RunA.0 -- 'Base' case model from Erica work -- wshale=5.605e-6, fshale=5.605e-08
 RunA.0.clmup.sm -- 'Base' model including smoothed DEM and CLM vegetation types
@@ -12,13 +11,11 @@ RunA.4 -- Exponential K with high decay rate -- wshale=5.605e-6, fshale_top=5.60
 
 RunB.0 -- 'Base' model including smoothed DEM and CLM vegetation types -- same as RunA.0.clmup.sm (I think), Use this dir as base case
 RunB.0.mint -- same as above (Normal RunB.0 was corrupted somehow)
-RunB.0.veg0 -- same as above but homogeneous vegetation for CLM
 RunB.1 -- Exponential K with medium decay rate      -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10 
 RunB.2 -- Exponential K with low weathered shale K  -- wshale=5.605e-07, fshale_top=5.605e-07, fshale_bottom=5.605e-10
 RunB.3 -- Exponential K with high weathered shale K -- wshale=5.605e-06, fshale_top=5.605e-06, fshale_bottom=5.605e-10
 RunB.4 -- Exponential K with high weathered shale K and high exponential decay rate
                                                     -- wshale=5.605e-6, fshale_top=5.605e-6, fshale_bottom=5.605e-12
-
 RunC.0 -- 'Base' model with shallower (3m) soil layer, bedrock at (9m) depth
 RunC.1 -- Exponential K with med decay rate        -- wshale=5.605e-06, fshale_top=5.605e-07, fshale_bottom=5.605e-10
 RunC.2 -- Exponential K with low weathered shale K -- wshale=5.605e-07, fshale_top=5.605e-07, fshale_bottom=5.605e-10
@@ -130,7 +127,6 @@ Files to Copy:
 
 
 Up-to-date Scripts:
-  vel_decomp.py         - Plots ecoslim infiltration locations. Requires the updated Ecoslim
   pull_parflow_wl_v5.py - Reads water table simulations
   read_vtk_v4.py        - Reads Ecoslim output
   plot_results_v5.py    - Post run plotting and analysis
@@ -139,5 +135,10 @@ Up-to-date Scripts:
   mangle_clm.py - utilities script to update the 1D clm vegetation file
   mangle_vel.py - post analysis script to write velocity vectors to vtk file for Paraview vis
   send_pnts.py  - utilities script to put select ecoslim pnts files into a new directory
-  vel_decomp.py - plotting script to show where Ecoslim particle infiltration regions are
-  
+  vel_decomp.py - # Script to process the Parflow velocity field at a single timestep.
+		  # Plots velocity field angle and magnitude variations along the hillslope at the saprolite-bedrock interface.
+		  # Plots the Ecoslim particle infiltration locations along the hillslope.
+  vel_decomp_2_rech.py  - # Script to read in and process the Parflow .pfb files for all timesteps
+                          # Saves output to 'parflow_out/pf_out_dict.pk' 
+                          # Outputs in pf_out_dict.pk: WTD, specific storage, gw velocities, ET, and pressures
+                          # Notes: Need to manually specify ParFlow time and domain details below 

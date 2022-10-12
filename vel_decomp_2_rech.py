@@ -1,6 +1,7 @@
-# Script to read in and process the Parflow .pfb files
+# Script to read in and process the Parflow .pfb files for all timesteps
 # Saves output to 'parflow_out/pf_out_dict.pk' 
-
+# Outputs in pf_out_dict.pk: WTD, specific storage, gw velocities, ET, and pressures
+# Notes: Need to manually specify ParFlow time and domain details below
 
 
 
@@ -13,15 +14,7 @@ import glob
 
 from parflowio.pyParflowio import PFData
 import pyvista as pv
-
 import parflow.tools as pftools
-
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib import ticker
-import matplotlib.patches as patches
-plt.rcParams['font.size'] = 14
-import matplotlib.colors as colors
 
 
 
@@ -50,8 +43,6 @@ def read_pfb(fname):
     pfdata.loadData()
     return pfdata.copyDataArray()
 
-
-
 class hydro_utils():
     def __init__(self, dz_scale):
         # define file names
@@ -60,7 +51,6 @@ class hydro_utils():
         #self.sat   = None
         #self.specific_storage = None
         #self.porosity = None
-        
         self.dz_scale = dz_scale
         
     def read_fields(self, timestep, directory, header):
@@ -226,122 +216,21 @@ with open('parflow_out/pf_out_dict.pk', 'wb') as ff_:
     
 
 
+
+'''
 #
 # Single Timestep
 #
 # Run the functions
-#hut = hydro_utils(dz_scale=dz_scale)
-#hut.read_fields(1683, 'wy_2017_2021', 'wy_2017_2021')
-
-#wtd = hut.pull_wtd()
-#specific_storage = hut.pull_storage() 
-#velx_bed,  velz_bed  = hut.vel_bedrock_layer(bedrock_mbls)
-#velx_soil, velz_soil = hut.vel_soil_layer(bedrock_mbls)
-
-
-
-"""
-
-#
-# Post-processing and plotting
-#
-
-#
-# Read in Land Surface Slope
-#
-slope = read_pfb('slope_x_v4.pfb')
-slope = slope[0,0,:] * 180/np.pi
+hut = hydro_utils(dz_scale=dz_scale)
+hut.read_fields(1683, 'wy_2017_2021', 'wy_2017_2021')
+wtd = hut.pull_wtd()
+specific_storage = hut.pull_storage() 
+velx_bed,  velz_bed  = hut.vel_bedrock_layer(bedrock_mbls)
+velx_soil, velz_soil = hut.vel_soil_layer(bedrock_mbls)
+'''
 
 
-
-#
-# Parflow Grid info
-#
-dom = pv.read('tfg.out.Perm.vtk')
-cell_bounds = np.array([np.array(dom.cell_bounds(i))[[0,1,4,5]] for i in range(dom.GetNumberOfCells())])
-cell_center = np.column_stack((cell_bounds[:,[0,1]].mean(axis=1), cell_bounds[:,[2,3]].mean(axis=1)))
-
-xx_ = np.flip(cell_center[:,0].reshape(32,559), axis=0)
-zz_ = np.flip(cell_center[:,1].reshape(32,559), axis=0)
-xx  = xx_[0,:]
-land_surf = zz_[0,:]
-
-wtd_elev = land_surf - wtd
-
-
-
-#
-# Subsurface Storage
-#
-# First create masks for the bedrock and soil layers
-#
-# CHANGE ME #
-#
-#bedrock_bls = 9.0  # fractured bedrock starts 9 mbls
-
-Z  = np.flip(dz_scale).cumsum() # depth below land surface for each layer
-Z_ = dz_scale.sum() - dz_scale.cumsum() + dz_scale/2 # cell-centered z value, starting at base of the domain then going up
-
-bedrock_ind  = abs(Z_ - bedrock_mbls).argmin() # index of first bedrock layer
-
-por = hut.porosity
-bedrock_mask = np.zeros_like(por)
-bedrock_mask[0:bedrock_ind+1,:] = 1 # remember need +1 when indexing with a list
-
-soil_mask = np.zeros_like(por)
-soil_mask[bedrock_ind+1:,:] = 1
-
-map_check = np.column_stack((np.arange(len(Z_)), Z_, por[:,0,0], bedrock_mask[:,0,0], soil_mask[:,0,0])) # check to make sure indexing is correct
-
-
-
-bedrock_storage = specific_storage.copy()
-bedrock_storage[bedrock_mask==0] = 0
-
-soil_storage = specific_storage.copy()
-soil_storage[bedrock_mask==1] = 0
-
-
-
-
-#
-# Plotting
-#
-
-fig, axes = plt.subplots(2,1)
-#
-# Plot Z-velocity 
-#
-ax = axes[0]
-ax.plot(xx, velz_bed*8760, label='top bedrock')
-ax.plot(xx, velz_soil*8760, label='bottom soil')
-#ax.plot(xx, velz_bed_*8760)
-#
-ax.set_ylabel('Recharge (m/year)')
-ax.legend(handlelength=1.0, labelspacing=0.25, handletextpad=0.5)
-#
-# Plot Topography Profile
-#
-ax = axes[1]
-ax.plot(xx, land_surf, color='black', label='land surface')
-ax.plot(xx, wtd_elev, color='lightblue', linestyle='--', alpha=1.0, zorder=8.0, label='water table')
-ax.plot(xx, land_surf-Z_[bedrock_ind], color='peru', label='bedrock')
-# 
-ax.set_ylabel('Elevation (m)')
-ax.set_xlabel('Distance (m)')
-ax.set_ylim(2750-20, 2950)
-ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
-ax.legend(handlelength=1.0, labelspacing=0.25, handletextpad=0.5)
-# Cleanup
-[axes[i].margins(x=0.0) for i in [0,1]]
-[axes[i].minorticks_on() for i in [0,1]]
-[axes[i].xaxis.set_major_locator(ticker.MultipleLocator(100)) for i in [0,1]] 
-[axes[i].tick_params(which='both', axis='both', top=True, right=True) for i in [0,1]]
-[axes[i].grid() for i in [0,1]]
-fig.tight_layout()
-plt.show()
-
-"""
 
 
 

@@ -1,9 +1,13 @@
-# Script to process the Parflow velocity fields
+# Script to process the Parflow velocity field at a single timestep.
+# Plots velocity field variations along the hillslope at the saprolite-bedrock interface.
+# Plots the particle infiltration locations along the hillslope.
+
 
 
 import numpy as np
 import pandas as pd
 import os
+
 from parflowio.pyParflowio import PFData
 import pyvista as pv
 
@@ -12,7 +16,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import ticker
 import matplotlib.patches as patches
 plt.rcParams['font.size'] = 14
-
 import matplotlib.colors as colors
 
 import pdb
@@ -20,9 +23,7 @@ import pdb
 
 
 #-------------------------------------------
-#
 # Read in and parse .pfb velocity fields
-#
 #-------------------------------------------
 vx_f = './wy_2017_2021/wy_2017_2021.out.velx.01683.pfb'
 vy_f = './wy_2017_2021/wy_2017_2021.out.vely.01683.pfb'
@@ -57,7 +58,6 @@ dom['vy'] = vy.ravel()
 dom['vz'] = vz.ravel()
 dom.save('vel_comps.vtk')
 
-
 # Calculate velocity magnitude and directions
 Vx = vx[:,0,:] + 1.e-20
 Vz = vz[:,0,:] + 1.e-20
@@ -77,8 +77,6 @@ Vel_ang_ = Vel_ang.copy()
 Vel_ang_[-1,0] = -180
 Vel_ang_[-1,-1] = 180
 vtk['Velocity Angle'] = Vel_ang_[:,np.newaxis,:].ravel()
-
-
 
 """
 #-----------
@@ -102,20 +100,16 @@ plotter.show(auto_close=False, cpos='XZ')#, screenshot='./test.png')
 
 
 #----------------------------
-#
 # Matplotlib Plotting
-#
 #----------------------------
 # Extract vtk cell info
 cell_bounds = np.array([np.array(vtk.cell_bounds(i))[[0,1,4,5]] for i in range(vtk.GetNumberOfCells())])
 cell_center = np.column_stack((cell_bounds[:,[0,1]].mean(axis=1), cell_bounds[:,[2,3]].mean(axis=1)))
 
-
 # Build a high denisty mesh
 xs = np.arange(cell_bounds[:,[0,1]].min(), cell_bounds[:,[0,1]].max(), 0.5)
 zs = np.arange(cell_bounds[:,[2,3]].min(), cell_bounds[:,[2,3]].max(), 0.1)
 xx, zz = np.meshgrid(xs, zs)
-
 
 # Map from vtk to high density grid
 # Note, this takes a long time - only run once
@@ -156,7 +150,7 @@ vel_ang[vel_ang==dum_ind] = np.NaN
 vel_ang = vel_ang.reshape(len(zs),len(xs))
 
 
-fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(5,3))
 v = ax.imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
 # Mangle Colorbar
 divider = make_axes_locatable(ax)
@@ -164,6 +158,8 @@ cax = divider.append_axes("right", size="1.5%", pad=0.05)
 cb = fig.colorbar(v, cax=cax, label='Velocity Angle')
 cb.locator = ticker.MaxNLocator(nbins=7)
 cb.update_ticks()
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Elevation (m)')
 fig.tight_layout()
 plt.show()
 
@@ -181,9 +177,7 @@ zz_ = np.flip(cell_center[:,1].reshape(32,559), axis=0)
 
 
 #-----------------------------
-#
 # Read in saturation field
-#
 #-----------------------------
 sf = 'wy_2017_2021/wy_2017_2021.out.satur.01683.pfb'
 sat = read_pfb(sf)[:,0,:]
@@ -197,7 +191,7 @@ sat_mp = sat_mp.reshape(len(zs),len(xs))
 
 # Saturation
 # Add a dummy value 
-fig, ax = plt.subplots(figsize=(8,6))
+fig, ax = plt.subplots(figsize=(5,3))
 v = ax.imshow(np.flip(sat_mp,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
 # Mangle Colorbar
 divider = make_axes_locatable(ax)
@@ -205,6 +199,8 @@ cax = divider.append_axes("right", size="1.5%", pad=0.05)
 cb = fig.colorbar(v, cax=cax, label='Saturation')
 cb.locator = ticker.MaxNLocator(nbins=7)
 cb.update_ticks()
+ax.set_xlabel('Distance (m)')
+ax.set_ylabel('Elevation (m)')
 fig.tight_layout()
 plt.show()
 
@@ -306,9 +302,12 @@ por = np.array(por + [por[-1]])
 K   = np.flip(K)
 por = np.flip(por)
 
+
+
 #----------------
 # CHANGE ME
 #----------------
+
 
 fshale_bls = 9.0 # shale is 6 m bls
 
@@ -344,15 +343,6 @@ bed_line_uni = []
 for i in np.unique(bed_line[:,1]):
     bed_line_uni.append(bed_line[bed_line[:,1]==i][-1])
 bed_line_uni = np.array(bed_line_uni)
-
-
-
-
-#
-# How does water table depth compare to bedrock depth?
-
-
-
 
 
 # 
@@ -428,7 +418,7 @@ X = np.arange(cell_bounds[:,[0,1]].min(), cell_bounds[:,[0,1]].max(), 1.5125)
 ax.plot(X, np.array(vel_mag_bed0)*8760, color='C2', linewidth=1.5, alpha=0.75)
 #ax.plot(X, np.array(vel_mag_bed1)*8760, color='C3', linewidth=1.5, alpha=0.75)
 # Testing 
-ax.plot(X, np.array(Vz[fs_ind])*8760, color='C2', linestyle='--', linewidth=1.5, alpha=0.75)
+#ax.plot(X, np.array(Vz[fs_ind])*8760, color='C2', linestyle='--', linewidth=1.5, alpha=0.75)
 #
 # Colorbar
 divider = make_axes_locatable(ax)
@@ -457,25 +447,11 @@ plt.show()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 #--------------------------------------------
 #
 # Ecoslim Age Distributions
 #
 #--------------------------------------------
-
-
 def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
     '''Convert particle ages at a single model time and well location to a residence time distribution.
     Returns:
@@ -715,7 +691,7 @@ plt.show()
 fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(5.5, 2))
 fig.subplots_adjust(right=0.78, left=0.2, top=0.94, bottom=0.3)
 # Add in Recharge Location
-wells_list = ['X404','X494','X540']
+wells_list = ['X404','X494','X528']
 labs = ['PLM1 soil', 'PLM6 soil', 'Floodplain']
 for mm in range(len(inf_dict.keys())):
     m = list(inf_dict.keys())[mm]
@@ -848,75 +824,6 @@ plt.show()
 
 
 
-
-
-
-
-
-
-
-
-
-
-#
-# Plot through time with velocity angle
-#
-fig, ax = plt.subplots(ncols=1, nrows=2, gridspec_kw={'height_ratios': [1,2]}, figsize=(7,3.5))
-fig.subplots_adjust(right=0.82, top=0.94, hspace=0.005, left=0.15)
-# Plot Velocity Angle
-v = ax[1].imshow(np.flip(vel_ang,axis=0), extent=(xx.min(),xx.max(),zz.min(),zz.max()), cmap='coolwarm')
-# Plot well Locations
-for i in range(len(wells)):
-    w = wells.index[i]
-    xpos = wells.loc[w, 'X']
-    zpos = wells.loc[w, 'land_surf_dem_m'] - wells.loc[w, 'smp_depth_m']
-    rect = patches.Rectangle((xpos-10, zpos-16), 16, 16, linewidth=1, edgecolor='black', facecolor='C{}'.format(i), zorder=10)
-    ax[1].add_patch(rect)
-# Mangle Colorbar
-divider = make_axes_locatable(ax[1])
-cax = divider.append_axes("right", size="1.5%", pad=0.05)  
-cb = fig.colorbar(v, cax=cax, label='Velocity Angle\n(degree)')
-cb.locator = ticker.MaxNLocator(nbins=7)
-cb.update_ticks()
-# Clean up
-ax[1].set_xlabel('Distance (m)')
-ax[1].set_ylabel('Elevation (m)')
-# Add in Recharge Location
-wells_list = ['PLM1','PLM7','PLM6']
-for mm in range(len(inf_dict.keys())):
-    m = list(inf_dict.keys())[mm]
-    inf_ = inf_dict[m]
-    for ww in range(len(wells_list)):
-        w = wells_list[ww]
-        ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='C{}'.format(ww), alpha=0.5, label=w if mm==0 else '')
-        if m in first_month:
-            cc =  ['darkblue','darkorange','darkgreen']
-            ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color=cc[ww], linestyle=(0, (2, 2)), alpha=1.0, label=w if mm==0 else '', zorder=10) 
-            ax[0].plot(inf_[w]['Xmu'], inf_[w]['Mass']/inf_[w]['Mass'].max(), color='black', linestyle=(2, (2, 2)), alpha=0.5, label=w if mm==0 else '', zorder=10) 
-# Cleanup
-ax[0].margins(x=0.0)
-ax[0].set_ylabel('Rel. Number\nof Particles')
-# x-axis
-[ax[i].xaxis.set_major_locator(ticker.MultipleLocator(200)) for i in [0,1]]
-[ax[i].xaxis.set_minor_locator(ticker.MultipleLocator(50)) for i in [0,1]]
-[ax[i].tick_params(axis='x', bottom=True, top=False) for i in [0,1]]
-ax[0].set_xticklabels([])
-# yaxis
-ax[0].yaxis.set_major_locator(ticker.MultipleLocator(1.0))
-ax[0].yaxis.set_minor_locator(ticker.MultipleLocator(0.25))
-ax[1].yaxis.set_major_locator(ticker.MultipleLocator(100))
-ax[1].yaxis.set_minor_locator(ticker.MultipleLocator(25))
-# Legend
-leg = ax[0].legend(loc='upper left', bbox_to_anchor=(0.98, 1.1), frameon=False)
-for lh in leg.legendHandles: 
-    lh.set_alpha(1)
-    lh.set_linewidth(3.0)
-divider = make_axes_locatable(ax[0])
-cax = divider.append_axes("right", size="1.5%", pad=0.05) 
-cax.remove()
-#plt.savefig('./figures/recharge_loc_ens.png', dpi=300)
-#plt.savefig('./figures/recharge_loc_ens.svg', format='svg')
-plt.show()
 
 
 

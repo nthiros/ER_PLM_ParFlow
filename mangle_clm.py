@@ -41,7 +41,6 @@ dom.clear_arrays()
 
 # Add new arrays
 dom['vegind'] = v_arr.ravel()
-
 dom.save('veg_ind.vtk')
 
 

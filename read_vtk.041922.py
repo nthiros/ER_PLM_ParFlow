@@ -273,23 +273,32 @@ class ecoslim_pnts_vtk():
 #dem = np.column_stack((X_,np.zeros_like(X_), Z_))
 
 
-# Particle Ages
+
+#------
+# WY2017-2021
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2017_2021')
 get_rtd.vtk_files  = vtk_files[::5]
 rtd_dict           = get_rtd.read_vtk()
-
-
-
-# Save the results to a dictionary
-with open('./parflow_out/ecoslim_MeanAge.pk', 'wb') as f:
+# Save to a dictionary
+with open('./parflow_out/ecoslim_MeanAge.1721.pk', 'wb') as f:
     pickle.dump(age_dict, f) 
-with open('./parflow_out/ecoslim_rtd.pk', 'wb') as ff:
+with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
     pickle.dump(rtd_dict, ff) 
 
 
 
-
+#------
+# WY2000-2016
+get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
+vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2000_2016')
+get_rtd.vtk_files  = vtk_files[::5]
+rtd_dict           = get_rtd.read_vtk()
+# Save to a dictionary
+with open('./parflow_out/ecoslim_MeanAge.0016.pk', 'wb') as f:
+    pickle.dump(age_dict, f)            
+with open('./parflow_out/ecoslim_rtd.0016.pk', 'wb') as ff:
+    pickle.dump(rtd_dict, ff)  
 
 
 
