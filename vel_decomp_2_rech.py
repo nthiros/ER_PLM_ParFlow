@@ -158,28 +158,32 @@ dz_scale = 10 * dz
 
 
 
-# Define timesteps and depth of bedrock in the model
-ts   = 1683
-bedrock_mbls = 9.0
-
-directory = 'wy_2017_2021'
-header    = 'wy_2017_2021'
-
-
-# Run the functions
-hut = hydro_utils(dz_scale=dz_scale)
-hut.read_fields(ts, directory, header)
-
-wtd = hut.pull_wtd()
-specific_storage = hut.pull_storage() 
-velx_bed,  velz_bed  = hut.vel_bedrock_layer(bedrock_mbls)
-velx_soil, velz_soil = hut.vel_soil_layer(bedrock_mbls)
+## Define timesteps and depth of bedrock in the model
+#ts   = 1683
+#bedrock_mbls = 9.0
+#
+#directory = 'wy_2017_2021'
+#header    = 'wy_2017_2021'
+#
+## Run the functions
+#hut = hydro_utils(dz_scale=dz_scale)
+#hut.read_fields(ts, directory, header)
+#
+#wtd = hut.pull_wtd()
+#specific_storage = hut.pull_storage() 
+#velx_bed,  velz_bed  = hut.vel_bedrock_layer(bedrock_mbls)
+#velx_soil, velz_soil = hut.vel_soil_layer(bedrock_mbls)
 
 
 
 #
 # Loop Through Transient Files
 #
+bedrock_mbls = 9.0
+
+directory = 'wy_2000_2016'
+header    = 'wy_2000_2016'
+
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
                'specific_storage':{},
@@ -190,12 +194,12 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'press':{}}
 
 # Use only files that exist
-ff = glob.glob(os.path.join(directory,'*press*'))
+ff = glob.glob(os.path.join(directory,'*velx*'))
 ts_list_ = [int(i.split('.')[-2]) for i in ff]
 ts_list_.sort()
 
-
 hut = hydro_utils(dz_scale=dz_scale)
+print ('Working on WY 2000-2016 velocity files')
 for i in ts_list_:
     print ('working on {}/{}'.format(i, len(ts_list_)))
     try:
@@ -211,13 +215,104 @@ for i in ts_list_:
     except TypeError:
         pass
     
-with open('parflow_out/pf_out_dict.pk', 'wb') as ff_:
+with open('parflow_out/pf_out_dict_0016.pk', 'wb') as ff_:
     pickle.dump(pf_out_dict, ff_)
     
+
+#
+#
+#
+
+bedrock_mbls = 9.0
+
+directory = 'wy_2017_2021'
+header    = 'wy_2017_2021'
+
+pf_out_dict = {'bedrock_mbls':bedrock_mbls,
+               'wtd':{},
+               'specific_storage':{},
+               'velbed':{},
+               'velsoil':{},
+               'et':{},
+               'sat':{},
+               'press':{}}
+
+# Use only files that exist
+ff = glob.glob(os.path.join(directory,'*velx*'))
+ts_list_ = [int(i.split('.')[-2]) for i in ff]
+ts_list_.sort()
+
+hut = hydro_utils(dz_scale=dz_scale)
+print ('Working on WY 2017-2021 velocity files')
+for i in ts_list_:
+    print ('working on {}/{}'.format(i, len(ts_list_)))
+    try:
+        hut.read_fields(i, directory, header)
+        
+        pf_out_dict['wtd'][i] = hut.pull_wtd()
+        pf_out_dict['specific_storage'][i] = hut.pull_storage()
+        pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
+        pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
+        pf_out_dict['et'][i] = hut.pull_et()
+        pf_out_dict['sat'][i] = hut.sat
+        pf_out_dict['press'][i] = hut.press
+    except TypeError:
+        pass
+    
+with open('parflow_out/pf_out_dict_1721.pk', 'wb') as ff_:
+    pickle.dump(pf_out_dict, ff_)
+
+
+
+
+
+
+
+
+
+
 
 
 
 '''
+ck_mbls = 9.0
+
+directory = 'wy_2017_2021'
+header    = 'wy_2017_2021'
+
+pf_out_dict = {'bedrock_mbls':bedrock_mbls,
+               'wtd':{},
+               'specific_storage':{},
+               'velbed':{},
+               'velsoil':{},
+               'et':{},
+               'sat':{},
+               'press':{}}
+
+# Use only files that exist
+ff = glob.glob(os.path.join(directory,'*velx*'))
+ts_list_ = [int(i.split('.')[-2]) for i in ff]
+ts_list_.sort()
+
+hut = hydro_utils(dz_scale=dz_scale)
+print ('Working on WY 2017-2021 velocity files')
+for i in ts_list_:
+    #print ('working on {}/{}'.format(i, len(ts_list_)))
+    try:
+        hut.read_fields(i, directory, header)
+        
+        pf_out_dict['wtd'][i] = hut.pull_wtd()
+        pf_out_dict['specific_storage'][i] = hut.pull_storage()
+        pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
+        pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
+        pf_out_dict['et'][i] = hut.pull_et()
+        pf_out_dict['sat'][i] = hut.sat
+        pf_out_dict['press'][i] = hut.press
+    except TypeError:
+        pass
+    
+with open('parflow_out/pf_out_dict.pk', 'wb') as ff_:
+    pickle.dump(pf_out_dict, ff_)
 #
 # Single Timestep
 #
