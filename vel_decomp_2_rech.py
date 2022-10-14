@@ -10,7 +10,7 @@ import pandas as pd
 import os
 import pickle 
 import glob
-
+import pdb
 
 from parflowio.pyParflowio import PFData
 import pyvista as pv
@@ -181,9 +181,6 @@ dz_scale = 10 * dz
 #
 bedrock_mbls = 9.0
 
-directory = 'wy_2000_2016'
-header    = 'wy_2000_2016'
-
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
                'specific_storage':{},
@@ -194,17 +191,19 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'press':{}}
 
 # Use only files that exist
-ff = glob.glob(os.path.join(directory,'*velx*'))
-ts_list_ = [int(i.split('.')[-2]) for i in ff]
-ts_list_.sort()
+directory = 'wy_2000_2016'
+header    = 'wy_2000_2016'
+
+ff = glob.glob(os.path.join(directory,'*velx*'))[1:]
+ts_list1 = [int(i.split('.')[-2]) for i in ff]
+ts_list1.sort()
 
 hut = hydro_utils(dz_scale=dz_scale)
 print ('Working on WY 2000-2016 velocity files')
-for i in ts_list_:
-    print ('working on {}/{}'.format(i, len(ts_list_)))
+for i in ts_list1:
+    #print ('working on {}/{}'.format(i, len(ts_list1)))
     try:
         hut.read_fields(i, directory, header)
-        
         pf_out_dict['wtd'][i] = hut.pull_wtd()
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
@@ -215,55 +214,37 @@ for i in ts_list_:
     except TypeError:
         pass
     
-with open('parflow_out/pf_out_dict_0016.pk', 'wb') as ff_:
-    pickle.dump(pf_out_dict, ff_)
-    
-
 #
+# Now WY 2017-2021
 #
-#
-
-bedrock_mbls = 9.0
 
 directory = 'wy_2017_2021'
 header    = 'wy_2017_2021'
 
-pf_out_dict = {'bedrock_mbls':bedrock_mbls,
-               'wtd':{},
-               'specific_storage':{},
-               'velbed':{},
-               'velsoil':{},
-               'et':{},
-               'sat':{},
-               'press':{}}
-
-# Use only files that exist
-ff = glob.glob(os.path.join(directory,'*velx*'))
-ts_list_ = [int(i.split('.')[-2]) for i in ff]
-ts_list_.sort()
+ff = glob.glob(os.path.join(directory,'*velx*'))[1:]
+ts_list2 = [int(i.split('.')[-2]) for i in ff]
+ts_list2.sort()
+_ts_list2 = np.array(ts_list2) + max(ts_list1)
 
 hut = hydro_utils(dz_scale=dz_scale)
 print ('Working on WY 2017-2021 velocity files')
-for i in ts_list_:
-    print ('working on {}/{}'.format(i, len(ts_list_)))
+for i,ii in zip(ts_list2, _ts_list2):
+    #print ('working on {}/{}'.format(i, len(ts_list2)))
     try:
         hut.read_fields(i, directory, header)
-        
-        pf_out_dict['wtd'][i] = hut.pull_wtd()
-        pf_out_dict['specific_storage'][i] = hut.pull_storage()
-        pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
-        pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
-        pf_out_dict['et'][i] = hut.pull_et()
-        pf_out_dict['sat'][i] = hut.sat
-        pf_out_dict['press'][i] = hut.press
+        pf_out_dict['wtd'][ii] = hut.pull_wtd()
+        pf_out_dict['specific_storage'][ii] = hut.pull_storage()
+        pf_out_dict['velbed'][ii] = hut.vel_bedrock_layer(bedrock_mbls)
+        pf_out_dict['velsoil'][ii] = hut.vel_soil_layer(bedrock_mbls)
+        pf_out_dict['et'][ii] = hut.pull_et()
+        pf_out_dict['sat'][ii] = hut.sat
+        pf_out_dict['press'][ii] = hut.press
     except TypeError:
         pass
-    
-with open('parflow_out/pf_out_dict_1721.pk', 'wb') as ff_:
+
+with open('parflow_out/pf_out_dict_0021.pk', 'wb') as ff_:
     pickle.dump(pf_out_dict, ff_)
-
-
-
+    
 
 
 
