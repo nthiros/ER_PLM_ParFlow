@@ -101,11 +101,16 @@ class ecoslim_grid_vtk():
         return out_dict
     
 # Mean Age Data
-age           = ecoslim_grid_vtk(well_df)
-vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
-age.vtk_files = vtk_files_c
-cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
-age_dict      = age.read_vtk()
+# WY 2017-2021
+# Moved Below
+#age           = ecoslim_grid_vtk(well_df)
+#vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
+#age.vtk_files = vtk_files_c
+#cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+#age_dict      = age.read_vtk()
+
+
+
 
 
 
@@ -273,9 +278,16 @@ class ecoslim_pnts_vtk():
 #dem = np.column_stack((X_,np.zeros_like(X_), Z_))
 
 
-
+'''
 #------
 # WY2017-2021
+# WY 2017-2021
+age           = ecoslim_grid_vtk(well_df)
+vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
+age.vtk_files = vtk_files_c
+cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+age_dict      = age.read_vtk()
+
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2017_2021')
 get_rtd.vtk_files  = vtk_files[::5]
@@ -285,11 +297,17 @@ with open('./parflow_out/ecoslim_MeanAge.1721.pk', 'wb') as f:
     pickle.dump(age_dict, f) 
 with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
     pickle.dump(rtd_dict, ff) 
-
+'''
 
 
 #------
 # WY2000-2016
+age           = ecoslim_grid_vtk(well_df)
+vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2000_2016')
+age.vtk_files = vtk_files_c
+cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+age_dict      = age.read_vtk()
+
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2000_2016')
 get_rtd.vtk_files  = vtk_files[::5]
@@ -299,6 +317,10 @@ with open('./parflow_out/ecoslim_MeanAge.0016.pk', 'wb') as f:
     pickle.dump(age_dict, f)            
 with open('./parflow_out/ecoslim_rtd.0016.pk', 'wb') as ff:
     pickle.dump(rtd_dict, ff)  
+
+
+
+
 
 
 

@@ -25,6 +25,7 @@ from matplotlib.ticker import MaxNLocator, MultipleLocator, AutoMinorLocator
 plt.rcParams['font.size']=14
 import matplotlib.dates as mdates
 import matplotlib.ticker as ticker
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 sys.path.insert(0, '/Users/nicholasthiros/Documents/SCGSR/Age_Modeling')
@@ -70,6 +71,37 @@ l_depths = {}
 l_depths['soil'] = 5.0
 l_depths['sap']  = 9.0
 # Note -- should automate the above to pull from permeability script directly
+
+
+
+#-------------------------------------------------------------------
+#
+# Tracer Observation Data Imports
+#
+#-------------------------------------------------------------------
+#
+# CFC
+cfc_obs = pd.read_excel('../ER_PLM_ParFLow/Field_Data/PLM_tracers_2021.xlsx', index_col='Sample', usecols=['Sample','CFC11','CFC12','CFC113'])
+cfc_obs += 1.e-10 # avoids zeros for some numerical lubricant
+
+# SF6
+sf6_obs = pd.read_excel('../ER_PLM_ParFLow/Field_Data/PLM_tracers_2021.xlsx', index_col='Sample', usecols=['Sample','SF6'])
+sf6_obs += 1.e-10
+
+# Tritium
+h3_obs = pd.read_excel('../ER_PLM_ParFLow/Field_Data/PLM_tracers_2021.xlsx', index_col='Sample', usecols=['Sample','H3'])
+h3_obs += 1.e-10
+
+# Helium (both 4He and 3He)
+he_obs_ = pd.read_excel('../ER_PLM_ParFLow/Field_Data/PLM_noblegas_2021.xlsx', skiprows=1, index_col='SiteID', nrows=9)
+he_obs  = he_obs_.copy()[['4He','3He']]
+he_obs.rename(columns={'4He':'He4','3He':'He3'}, inplace=True)
+he_obs.dropna(inplace=True)
+
+obs_dict = {'cfc12':cfc_obs['CFC12'],
+            'sf6':sf6_obs['SF6'],
+            'h3':h3_obs['H3'],
+            'he4':he_obs['He4']}
 
 
 
@@ -148,12 +180,16 @@ def pf_2_dates(startdate, enddate, f):
 # Read in files from pull_wl.py
 pf_spinup =  pd.read_csv('./parflow_out/wy_spinup_wt_bls.csv')
 pf_00_16  =  pd.read_csv('./parflow_out/wy_2000_2016_wt_bls.csv')
-pf_17_21  =  pd.read_csv('./parflow_out/wy_2017_2021_wt_bls.csv') 
+pf_17_21  =  pd.read_csv('./parflow_out/wy_2017_2021_wt_bls.csv')
+pf_00_21  =  pd.concat((pf_00_16, pf_17_21))
+
 
 # Update index to dates
 pf_spinup.index =  pf_2_dates('1969-09-30', '1979-09-30', '24H')
 pf_00_16.index  =  pf_2_dates('1999-09-30', '2016-09-30', '24H')
 pf_17_21.index  =  pf_2_dates('2016-09-30', '2021-08-29', '24H')
+pf_00_21.index  =  pf_2_dates('1999-09-30', '2021-08-30', '24H')
+
 
 
 #
@@ -181,6 +217,10 @@ def set_wy(df):
 yrs_spinup, first_yrs_spinup = set_wy(pf_spinup)
 yrs_0021, first_yrs_0021 = set_wy(pd.concat((pf_00_16, pf_17_21)))
 yrs_1721, first_yrs_1721 = set_wy(pf_17_21)
+yrs_0021, first_yrs_0021 = set_wy(pf_00_21)
+
+
+
 
 
 
@@ -203,111 +243,15 @@ else:
     os.makedirs('figures')
 
 
-w = ['PLM1','PLM7','PLM6']
 
 
 #
 # Spinup
 #
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(6,4.5))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.22)
-w = ['PLM1','PLM7','PLM6']
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(6,3.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.17, right=0.97, left=0.22)
+w = ['PLM1','PLM6']
 ts = pf_spinup.copy()
-# Plot water levels
-for i in range(len(w)):
-    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
-    ax[i].invert_yaxis()
-    # Now add field observations
-    if w[i] == 'PLM1':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
-        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='C3', alpha=0.5)
-    elif w[i] == 'PLM6':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
-        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='C3', alpha=0.5)
-    # Plot vertical lines on May 1st
-    #df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
-    #[ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
-    # X-ticks
-    ax[i].set_xticks(first_yrs_spinup)
-    ax[i].set_xticklabels(labels=yrs_spinup)
-    #ax[i].xaxis.set_minor_locator(MultipleLocator(1))
-    # Add in layers
-    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
-    # Clean up
-    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-    if i == len(w)-1:
-        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
-    else:
-        ax[i].tick_params(axis='x', labelbottom=False)
-    ax[i].set_ylabel(w[i])
-    ax[i].minorticks_on()
-    ax[i].tick_params(axis='x', which='minor', bottom=False)
-    ax[i].margins(x=0.01)
-fig.text(0.03, 0.6, 'Water Table Depth (m)', ha='center', va='center', rotation='vertical')
-#ax[2].set_xlabel('Date')
-plt.savefig('./figures/waterlevels_spinup.jpg', dpi=300)
-plt.show()
-
-
-
-
-#
-# WY 2000-2021
-#
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(6,4.5))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.22)
-w = ['PLM1','PLM7','PLM6']
-ts = pd.concat((pf_00_16,pf_17_21))
-# Plot water levels
-for i in range(len(w)):
-    ax[i].plot(np.arange(len(ts)), ts[w[i]], label=w[i])
-    ax[i].invert_yaxis()
-    # Now add field observations
-    if w[i] == 'PLM1':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
-        ax[i].plot(xx, plm1_obs['bls'][np.isin(plm1_obs.index, ts.index)], color='black', ls='--', alpha=0.75)
-    elif w[i] == 'PLM6':
-        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
-        ax[i].plot(xx, plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='black', ls='--', alpha=0.75)
-    # Plot vertical lines on May 1st
-    #df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
-    #[ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
-    # X-ticks
-    ax[i].set_xticks(first_yrs_0021[::2])
-    ax[i].set_xticklabels(labels=yrs_0021[::2])
-    ax[i].xaxis.set_minor_locator(AutoMinorLocator(n=2))
-    # Add in layers
-    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
-    # Clean up
-    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
-    if i == len(w)-1:
-        ax[i].tick_params(axis='x', rotation=45, pad=0.01)
-    else:
-        ax[i].tick_params(axis='x', labelbottom=False)
-    ax[i].set_ylabel(w[i])
-    #ax[i].minorticks_on()
-    ax[i].margins(x=0.01)
-    ax[i].grid()
-fig.text(0.03, 0.6, 'Water Table Depth (m)', ha='center', va='center', rotation='vertical')
-#ax[2].set_xlabel('Date')
-plt.savefig('./figures/waterlevels_00_21.jpg', dpi=300)
-plt.show()
-
-
-#
-# WY 2008-2021
-#
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(6,4.5))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.15, right=0.97, left=0.22)
-w = ['PLM1','PLM7','PLM6']
-ts = pd.concat((pf_00_16,pf_17_21))
-ts = ts[ts.index>'2007-09-30']
 # Plot water levels
 for i in range(len(w)):
     ax[i].plot(ts[w[i]], label=w[i])
@@ -319,20 +263,11 @@ for i in range(len(w)):
     elif w[i] == 'PLM6':
         xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
         ax[i].plot(plm6_obs['bls'][np.isin(plm6_obs.index, ts.index)], color='black', ls='--', alpha=0.75)
-    # Plot vertical lines on May 1st
-    #df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
-    #[ax[i].axvline(np.where(ts.index==pd.to_datetime(z))[0][0], color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
     # X-ticks
     ax[i].xaxis.set_major_locator(mdates.YearLocator(base=1, month=10, day=1))
-    #ax[i].xaxis.set_minor_locator(mdates.YearLocator(base=1, month=10, day=1))
     ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    # Add in layers
-    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
-    # Clean up
-    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    for label in ax[i].get_xticklabels(which='major'):
+        label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
     if i == len(w)-1:
         ax[i].tick_params(axis='x', rotation=45, pad=0.01)
     else:
@@ -342,19 +277,19 @@ for i in range(len(w)):
     ax[i].margins(x=0.01)
     ax[i].grid()
 fig.text(0.03, 0.6, 'Water Table Depth (m)', ha='center', va='center', rotation='vertical')
-#ax[2].set_xlabel('Date')
-plt.savefig('./figures/waterlevels_08_21.jpg', dpi=300)
+plt.savefig('./figures/waterlevels_spinup.jpg', dpi=300)
 plt.show()
 
 
 
 #
-# WY 2017-2021
+# WY 2000-2021
 #
-fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(6.0, 4.5))
-fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.2, right=0.97, left=0.22)
-w = ['PLM1','PLM7','PLM6']
-ts = pf_17_21.copy()
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(6,3.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.17, right=0.97, left=0.2)
+w = ['PLM1','PLM6']
+ts = pf_00_21.copy()
+ts = ts[ts.index>'2000-09-30']
 # Plot water levels
 for i in range(len(w)):
     ax[i].plot(ts[w[i]], lw=1.5, label=w[i])
@@ -366,33 +301,61 @@ for i in range(len(w)):
     elif w[i] == 'PLM6':
         xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
         ax[i].plot(plm6_obs['bls'], color='black', ls='--', alpha=0.75)
-    # Plot vertical lines on May 1st
-    #df_may1 = ['{}-05-01'.format(j) for j in ts.index.year.unique()[1:]]
-    #[ax[i].axvline(pd.to_datetime(z), color='grey', linestyle='--', linewidth=0.75, alpha=0.5) for z in df_may1]
-    # X-ticks
+    # ticks
     ax[i].xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
-    ax[i].xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
-    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
-    # Add in layers
-    #ax[i].axhline(0.0, color='grey', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['soil'], color='olivedrab', linestyle='--', alpha=0.75)
-    #ax[i].axhline(l_depths['sap'], color='saddlebrown', linestyle='--', alpha=0.75)
-    # Clean up
-    #ax[i].yaxis.set_major_locator(MultipleLocator(2))
-    #ax[i].yaxis.set_minor_locator(MultipleLocator(1))
+    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    #ax[i].xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
+    for label in ax[i].get_xticklabels(which='major'):
+        label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
     if i == len(w)-1:
         ax[i].tick_params(axis='x', rotation=45, pad=0.005, length=4, width=1.1)
     else:
         ax[i].tick_params(axis='x', labelbottom=False, length=4, width=1.1)
     ax[i].set_ylabel(w[i])
-    #ax[i].minorticks_on()
-    #ax[i].tick_params(axis='x', which='minor', bottom=False)
     ax[i].margins(x=0.01)
     ax[i].grid()
-#ax[2].set_xlabel('Date')
 fig.text(0.03, 0.6, 'Water Table Depth (m)', ha='center', va='center', rotation='vertical')
-plt.savefig('./figures/waterlevels_17_21.jpg', dpi=300)
+plt.savefig('./figures/waterlevels_00_21.jpg', dpi=300)
+plt.show()
+
+
+
+#
+# WY 2017-2021
+#
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(6,3.5))
+fig.subplots_adjust(hspace=0.15, top=0.98, bottom=0.17, right=0.97, left=0.2)
+w = ['PLM1','PLM6']
+ts = pf_00_21.copy()
+ts = ts[ts.index>'2016-09-30']
+# Plot water levels
+for i in range(len(w)):
+    ax[i].plot(ts[w[i]], lw=1.5, label=w[i])
+    ax[i].invert_yaxis()
+    # Now add field observations
+    if w[i] == 'PLM1':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm1_obs.index)]
+        ax[i].plot(plm1_obs['bls'], color='black', ls='--', alpha=0.75)
+    elif w[i] == 'PLM6':
+        xx = np.arange(len(ts))[np.isin(ts.index, plm6_obs.index)]
+        ax[i].plot(plm6_obs['bls'], color='black', ls='--', alpha=0.75)
+    # ticks
+    ax[i].xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
+    ax[i].xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax[i].xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+    ax[i].yaxis.set_minor_locator(AutoMinorLocator())
+    for label in ax[i].get_xticklabels(which='major'):
+        label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+    if i == len(w)-1:
+        ax[i].tick_params(axis='x', rotation=45, pad=0.005, length=4, width=1.1)
+    else:
+        ax[i].tick_params(axis='x', labelbottom=False, length=4, width=1.1)
+    ax[i].set_ylabel(w[i])
+    ax[i].margins(x=0.01)
+    ax[i].grid()
+fig.text(0.03, 0.6, 'Water Table Depth (m)', ha='center', va='center', rotation='vertical')
+plt.savefig('./figures/waterlevels_07_21.jpg', dpi=300)
 plt.show()
 
 
@@ -434,6 +397,7 @@ prcp_sumd_cs = prcp_sumd_.groupby(by=['wy']).cumsum()
 
 #-------
 # Plots
+#------
 fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(6.5,3))
 fig.subplots_adjust(top=0.98, bottom=0.12, left=0.20, right=0.98, hspace=0.2)
 # monthly on bottom
@@ -460,7 +424,7 @@ for i in [0,1]:
     loc_min = mdates.MonthLocator(interval=1)
     ax.xaxis.set_major_locator(loc)
     ax.xaxis.set_minor_locator(loc_min)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.margins(x=0.01)
     ax.tick_params(axis='both', length=4, width=1.1)
     ax.tick_params(axis='y', which='both', right=True)
@@ -585,41 +549,52 @@ def flux_wt_rtd(rtd_dict_unsort, model_time, well_name, nbins):
     gb =  rtd_df.groupby(pd.cut(rtd_df['Time'], nbins))
     rtd_dfs = gb.agg(dict(Time='mean',Mass='sum',Source='mean',Xin='mean',wt='sum'))
     rtd_dfs['count'] = gb.count()['Time']
+    # not sure here, some NANs where there are zero particles
+    rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+    
     return rtd_df, rtd_dfs
 
 
+def find_tau(_rtd_df):
+    '''Mean age from EcoSlim distribution'''
+    return (_rtd_df['Time'] * _rtd_df['wt']).sum()
 
+
+# Dictionary with RTDs for all wells and timesteps
+# Generated by read_vtk.py
+#rtd_dict = pd.read_pickle('./parflow_out/ecoslim_rtd.1721.pk')
 rtd_dict = pd.read_pickle('./parflow_out/ecoslim_rtd.pk')
 
 
-date_map_ =[np.where((pf_17_21.index>'{}-09-30'.format(i-1)) & (pf_17_21.index<'{}-10-01'.format(i)), True, False) for i in np.unique(pf_17_21.index.year)]
-date_map_yr = np.array([date_map_[i]*np.unique(pf_17_21.index.year)[i] for i in range(len(np.unique(pf_17_21.index.year)))]).sum(axis=0)
+#----------------------------
+# Plotting label helpers
+date_map_     = [np.where((pf_17_21.index>'{}-09-30'.format(i-1)) & (pf_17_21.index<'{}-10-01'.format(i)), True, False) for i in np.unique(pf_17_21.index.year)]
+date_map_yr   = np.array([date_map_[i]*np.unique(pf_17_21.index.year)[i] for i in range(len(np.unique(pf_17_21.index.year)))]).sum(axis=0)
 date_map_day_ = [np.arange(len(pf_17_21.index[date_map_[i]])) for i in range(len(np.unique(pf_17_21.index.year)))]
 date_map_day  = np.concatenate((date_map_day_))
-date_map  = pd.DataFrame(pf_17_21.index, columns=['Date'])
-date_map['wy'] = date_map_yr
+date_map      = pd.DataFrame(pf_17_21.index, columns=['Date'])
+date_map['wy']  = date_map_yr
 date_map['day'] = date_map_day
 
 
-#------------
-# Pick a well
+#----------------------------------
+# Pick a well and sample time
 well = 'PLM6'
 samp_date = '2021-05-11' # date to consider and extract RTD info for
 model_time_samp = date_map[date_map['Date'] == samp_date].index[0] # convert the date to a model time
 model_time_samp = list(rtd_dict.keys())[abs(list(rtd_dict.keys()) - model_time_samp).argmin()]
 
-
 rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time_samp, well, 15)
 tau = (rtd_df['Time'] * rtd_df['wt']).sum()
 tau_med = np.median(rtd_df['Time'])
 
-# not sure here, some NANs where there are zero particles
-rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
 
 
-#--------------------------
-# Plot the Single RTD
-#--------------------------
+
+#-----------------------------------------
+# Plot a Single RTD at single well
+#-----------------------------------------
+"""
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(6,3))
 fig.suptitle('{} {}'.format(well, samp_date))
 ax[0].plot(rtd_df['Time'],  rtd_df['wt'], marker='.', color='red')
@@ -640,37 +615,37 @@ ax[1].minorticks_on()
 fig.tight_layout()
 #plt.savefig('./figures/ecoslim_rtd.jpg',dpi=300)
 plt.show()
+"""
 
 
 
-
-
-#---------------------------------------------
-# Matrix Diffusion RTD
-#---------------------------------------------
-import convolution_integral_utils as conv
-
+#---------------------------------------------------
+#
+# Matrix Diffusion Convolution with EcoSlim RTD
+#
+#---------------------------------------------------
 #
 # Testing with Dispersion RTD
 #
 # For now, using pieces that were generated in Age_modeling dir
-C_in_dict  = pd.read_csv('./C_in_df.csv', index_col=['tau']) # convolution tracer input series
+C_in_dict  = pd.read_csv('../ER_PLM_ParFlow/C_in_df.csv', index_col=['tau']) # convolution tracer input series
 
 tr_in = C_in_dict['CFC12']
-# first generate a pure dispersion RTD, this is just for reference
+# first generate a dispersion RTD for reference
 conv_ = conv.tracer_conv_integral(C_t=tr_in, t_samp=tr_in.index[-1])
 conv_.update_pars(tau=25, mod_type='dispersion', D=0.5) 
 dm = conv_.gen_g_tp() 
-print (conv_.convolve())
-print (conv_.convolve(g_tau=dm))
+print ('Dispersion RTD CFC12: ', conv_.convolve())
+print ('Dispersion RTD tau:', conv_.convolve(g_tau=dm))
 # Testing - does FM RTD match the above?
 # These parameters such that the total RTD mean age is = to the adjective only mean age - diffusion has little impact
 convo = conv.tracer_conv_integral(C_t=tr_in, t_samp=tr_in.index[-1])
-convo.update_pars(tau=1, mod_type='frac_inf_diff', Phi_im=0.000001, bbar=0.01, f_tadv_ext=dm) # tau should not matter here
+convo.update_pars(tau=1, mod_type='frac_inf_diff', Phi_im=0.000001, bbar=0.1, f_tadv_ext=dm) # tau should not matter here
 gg_ = convo.gen_g_tp()
-print (convo.FM_mu)
-print(convo.convolve(g_tau=gg_))
-print(convo.convolve())
+print ('FM RTD CFC12: ', convo.convolve())  # re-generate the RTD for the convolution
+print ('FM RTD CFC12: ', convo.convolve(g_tau=gg_)) # re-use the RTD for the convolution - should be faster
+print ('FM RTD tau: ', convo.FM_mu)
+
 
 
 # Predicting Tritium
@@ -687,8 +662,8 @@ convo = conv.tracer_conv_integral(C_t=tr_in, t_samp=tr_in.index[-1])
 convo.update_pars(tau=1, mod_type='frac_inf_diff', Phi_im=0.000001, bbar=0.01, f_tadv_ext=dm, t_half=12.34) # tau should not matter here
 gg_ = convo.gen_g_tp()
 print (convo.FM_mu)
-print(convo.convolve(g_tau=gg_))
-print(convo.convolve())
+print (convo.convolve(g_tau=gg_))
+print (convo.convolve())
 
 
 # Predicting Helium-4
@@ -712,18 +687,30 @@ print(convo.convolve())
 
 
 
-
+#----------------------------------
 # EcoSLIM rtd needs to be
 # 1 - same length as tr_in
 # 2 - yearly timesteps
 # 3 - sum to 1
-# Ideas - fit a gaussian process model to the EcoSLIM RTD?
-xx = np.arange(0, len(tr_in))
+
+
+# define needed inputs
+tr_in = C_in_dict['CFC12']
+rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time_samp, well, 15)
+
+xx = np.arange(0, len(tr_in)) # input function times
 xx[0] += 1.e-6
-yy = np.interp(xx, rtd_dfs['Time'], rtd_dfs['wt'], left=0.0, right=0.0) # the interpolated values
+#yy = np.interp(xx, rtd_dfs['Time'].to_numpy(), rtd_dfs['wt'].to_numpy(), left=0.0, right=0.0) # input function concentrations
+yy = np.interp(xx, rtd_df['Time'].to_numpy(), rtd_df['wt'].to_numpy(), left=0.0, right=0.0) # input function concentrations
+# Need to make sure there is at least one value above zero to avoid nans
+if (yy>0.0).sum() == 0:
+    yy[int(rtd_df['Time'].mean()//1)] = 1.0
 yy /= yy.sum() 
 
 
+
+#------------------------------------------------------------------------------
+# Plot comparing ecoslim with interpolated RTD needed for convolution
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(6,3.5))
 fig.suptitle('{} {}'.format(well, samp_date))
 #ax[0].plot(rtd_df['Time'],  rtd_df['wt'], marker='.')
@@ -748,20 +735,25 @@ fig.tight_layout()
 plt.show()
 
 
+
+#
 # EcoSLIM Advective RTD only
+#
 convo = conv.tracer_conv_integral(C_t=tr_in, t_samp=tr_in.index[-1])
 convo.update_pars()
-print (convo.convolve(g_tau=yy))
 
-# With FM model - but minimize matrix impact 
+# With FM model - but minimize matrix impact - should equal ecoslim mean age
 convo = conv.tracer_conv_integral(C_t=tr_in, t_samp=tr_in.index[-1])
-convo.update_pars(mod_type='frac_inf_diff', Phi_im=0.0001, bbar=0.01, f_tadv_ext=yy) # tau should not matter here
+convo.update_pars(mod_type='frac_inf_diff', Phi_im=0.0001, bbar=0.01, f_tadv_ext=yy) 
 gg_ = convo.gen_g_tp()
-print (convo.FM_mu)
-print (convo.convolve())
+print ('Minimizing Matrix Diffusion')
+print ('Mean age EcoSlim: ', find_tau(rtd_dfs))
+print ('Mean age FM RTD:  ', convo.FM_mu)
 
 
+#
 # Now compare with matrix diffusion added (Fracture RTD model)
+#
 bbar_list = np.logspace(-5,-1,5)
 fm_list   = []
 fm_mu     = []
@@ -784,10 +776,10 @@ fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,6))
 fig.subplots_adjust(left=0.15, right=0.6, top=0.94, bottom=0.1, hspace=0.4)
 ax = axes[0]
 #ax.plot(rtd_dfs['Time'], rtd_dfs['wt'], marker='.', color='red', zorder=10)
-ax.plot(xx, yy, marker='.', color='grey', alpha=0.8, zorder=10, label=r'EcoSLIM, $\tau_{{adv}}$={:.0f} yrs'.format(tau))
+ax.plot(xx, yy, marker='.', color='grey', alpha=0.8, zorder=10, label=r'EcoSLIM, $\tau_{{adv}}$={:.0f} yrs'.format(find_tau(rtd_dfs)))
 for b in reversed(range(len(bbar_list))):
     ax.plot(fm_list[b], label=r'$\bar{{b}}$={:.1E} m, $\tau_{{tot}}$={:.0f} yrs'.format(bbar_list[b], fm_mu[b]))
-ax.set_xlim(50,200)
+ax.set_xlim(0,60)
 ax.minorticks_on()
 #ax.set_xlabel(r'Residence Time, t$^{\prime}$ (years)')
 ax.set_ylabel(r'Fraction of Sample, g(t$^{\prime}$)')
@@ -797,17 +789,16 @@ ax.set_title(r'$\phi_{{im}}$={:.1E}'.format(0.01))
 
 ax = axes[1]
 #ax.plot(rtd_dfs['Time'], rtd_dfs['wt'], marker='.', color='red', zorder=10)
-ax.plot(xx, yy, marker='.', color='grey', zorder=10, alpha=0.8, label=r'EcoSLIM, $\tau_{{adv}}$={:.0f} yrs'.format(tau))
+ax.plot(xx, yy, marker='.', color='grey', zorder=10, alpha=0.8, label=r'EcoSLIM, $\tau_{{adv}}$={:.0f} yrs'.format(find_tau(rtd_dfs)))
 for p in range(len(Phim_list)):
     ax.plot(fm_list_[p], label=r'$\phi_{{im}}$={:.1E}, $\tau_{{tot}}$={:.0f} yrs'.format(Phim_list[p], fm_mu_[p]))
-ax.set_xlim(50,200)
+ax.set_xlim(0,60)
 ax.minorticks_on()
 ax.set_xlabel(r'Residence Time, t$^{\prime}$ (years)')
 ax.set_ylabel(r'Fraction of Sample, g(t$^{\prime}$)')
 ax.legend(loc='upper left', bbox_to_anchor=(0.7, 1.0), fancybox=True, framealpha=0.9, fontsize=13,
           handlelength=1.0, labelspacing=0.25, handletextpad=0.1)
 ax.set_title(r'$\bar{{b}}$={:.1E} m'.format(0.001))
-#fig.tight_layout()
 plt.savefig('./figures/ecoslim_fm_pdf.jpg',dpi=300)
 plt.show()
 
@@ -830,16 +821,16 @@ _Keff    = lambda Km, b, L: (L*Km + (b**3)*9810./(12*1.e-3)) / (L+b)
 
 
 # Priors Based on Uhlemann 2022 Borehole NMR data
-nsize = 500
+nsize = 100
 
-Km_list_   = 10**(np.random.uniform(-8,-6,nsize)) # 1.e-8 to 1.e-6 matrix hydraulic conductivty
-Keff_list_ = 10**(np.random.uniform(-6,-4,nsize)) # 1.e-6 to 1.e-4 matrix hydraulic conductivty, can also do Keff_list_ as mulitiplicative factor of Km
-L_list_    = np.random.uniform(0.1, 0.5,nsize)    # fracture spacing (m), based on Gardner 2020
-Phim_list_ = 10**(np.random.uniform(-3,-1,nsize)) # 0.1% to 10% matrix porosity
+Km_list_   = 10**(np.random.uniform(-8, -6, nsize)) # 1.e-8 to 1.e-6 matrix hydraulic conductivty
+Keff_list_ = 10**(np.random.uniform(-6, -4, nsize)) # 1.e-6 to 1.e-4 matrix hydraulic conductivty, can also do Keff_list_ as mulitiplicative factor of Km
+L_list_    = np.random.uniform(0.1, 0.5, nsize)     # fracture spacing (m), based on Gardner 2020
+Phim_list_ = 10**(np.random.uniform(-3, -1, nsize)) # 0.1% to 10% matrix porosity
 bbar_list_ = _bbar(Keff_list_, Km_list_, L_list_)
 
 
-rerun = False
+rerun = True
 if rerun:
     # Dictionary to hold outputs
     fm_dict = {'tau_mu':[],
@@ -847,7 +838,6 @@ if rerun:
                'sf6':[],
                'h3':[],
                'he4':[]}
-    
     conv_ = conv.tracer_conv_integral(C_t=C_in_dict['CFC12'], t_samp=C_in_dict['CFC12'].index[-1])
     for b,p in zip(bbar_list_, Phim_list_):
         # Initialize
@@ -866,7 +856,6 @@ if rerun:
         conv_.C_t = C_in_dict['He4_ter']
         conv_.update_pars(rad_accum='4He', J=ng_utils.J_flux(Del=1., rho_r=2700, rho_w=1000, U=3.0, Th=10.0, phi=0.05))
         fm_dict['he4'].append(conv_.convolve(g_tau=g_tau))
-        
     with open('fm_dm_dict.pk', 'wb') as handle:
         pickle.dump(fm_dict, handle)
 else:
@@ -880,21 +869,43 @@ def fmt(x, pos):
     a, b = '{:.2e}'.format(x).split('e')
     return r'$10^{{{}}}$'.format(float(a))
 
+ylabs = {'cfc11':'CFC-11',
+         'cfc12':'CFC-12',
+         'cfc113':'CFC-113',
+         'sf6':'SF$_{6}$',
+         'he4':'$^{4}$He$\mathrm{_{terr}}$',
+         'H3_He3':'$\mathrm{^{3}H/^{3}He}$',
+         'h3':'$\mathrm{^{3}H}$',
+         'He3':'$\mathrm{^{3}He}$',
+         'tau_mu':r'$\it{\tau_{comp}}$'}
+
+ylabs_units = {'cfc11':'pptv',
+               'cfc12':'pptv',
+               'cfc113':'pptv',
+               'sf6':'pptv',
+               'he4':r'cm$^{3}$STP/g',
+               'H3_He3':'TU',
+               'h3':'TU',
+               'He3':'TU',
+               'tau_mu':'yrs'}
+
 # Mean Age as function of bbar and immobile porosity
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,4))
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5,4))
 #fig.subplots_adjust(left=0.15, right=0.6, top=0.96, bottom=0.1, hspace=0.4)
 pts = ax.scatter(bbar_list_, Phim_list_, c=np.log10(fm_dict['tau_mu']))
 #pts = ax.scatter(bbar_list_, Phim_list_, c=fm_mu_)
-ax.set_title(r'$\tau_{{adv}}$={:.0f} years'.format(tau))
+ax.set_title(r'$\tau_{{adv}}$={:.0f} years ({})'.format(find_tau(rtd_dfs), well))
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_xlabel(r'$\bar{b}$ (m)')
 ax.set_ylabel(r'$\phi_{im}$ (-)')
 #ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
-ax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, numticks=12))
-ax.xaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12))
-fig.colorbar(pts, ax=ax, format=ticker.FuncFormatter(fmt), label='Mean Residence Time (years)')
-#fig.colorbar(pts, ax=ax, label='Mean Residence Time (years)')
+#ax.set_xlim(10**(-4.8), 10**(-3.0))
+#ax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, numticks=12))
+#ax.xaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12))
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.05)
+cb = plt.colorbar(pts, cax=cax, format=ticker.FuncFormatter(fmt), label='Mean Residence Time (years)')
 fig.tight_layout()
 plt.savefig('./figures/ecoslim_fm_mc.jpg',dpi=300)
 plt.show()
@@ -904,7 +915,8 @@ plt.show()
 # 
 # Density Distributions
 #
-fig, axes = plt.subplots(nrows=5,ncols=1,figsize=(3.5, 9))
+fig, axes = plt.subplots(nrows=5,ncols=1,figsize=(3, 8))
+fig.subplots_adjust(left=0.15, right=0.9, top=0.98, bottom=0.08, hspace=0.55)
 #fig.subplots_adjust(hspace=0.4)
 fm_dict_ = list(fm_dict.keys())
 for i in range(len(fm_dict_)):
@@ -917,11 +929,25 @@ for i in range(len(fm_dict_)):
         logbins = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
         ax.hist(dd_, bins=logbins, log=False, histtype='step', color='black', linewidth=1.5)   
     else:
-        ax.hist(dd_, bins=15, log=False, histtype='step', color='black', linewidth=1.5)
-    ax.set_xlabel(fm_dict_[i], labelpad=0.5)
-axes[2].set_ylabel('Number of Runs')
-fig.tight_layout()
+        if dd_.max() < 1.e-9:
+            ax.axvline(0.0, c='black')
+            ax.set_xlim(-1,1)
+        else:
+            ax.hist(dd_, bins=15, log=False, histtype='step', color='black', linewidth=1.5)
+    ax.minorticks_on()
+    ax.tick_params(axis='y', which='both', labelleft=False, left=False)
+    ax.set_xlabel('{} ({})'.format(ylabs[fm_dict_[i]], ylabs_units[fm_dict_[i]]), labelpad=0.5)
+fig.text(0.02, 0.53, 'Density ({})'.format(well), va='center', rotation='vertical')
+plt.savefig('./figures/ecoslim_fm_conc.jpg',dpi=300)
 plt.show()
+
+
+
+
+
+
+
+
 
 
 
@@ -935,6 +961,7 @@ plt.show()
 #----------------------------
 wells = ['PLM1','PLM7','PLM6']
 
+"""
 fig, ax = plt.subplots(nrows=3, ncols=2, figsize=(6,6))
 fig.subplots_adjust(wspace=0.40, hspace=0.45, top=0.94, right=0.97, left=0.15)
 #fig.suptitle('Sample Date: {}'.format(samp_date))
@@ -946,15 +973,10 @@ for i in range(3):
     tau_med = np.median(rtd_df['Time'])
     # not sure here, some NANs where there are zero particles
     rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
-    #fig.suptitle('{} {}'.format(well, samp_date))
-    #ax[0].plot(rtd_df['Time'],  rtd_df['wt'], marker='.')
     ax[i,0].plot(rtd_dfs['Time'], rtd_dfs['wt'], marker='.', color='black')
     ax[i,0].axvline(tau, color='black', linestyle='--')
     #ax[0].axvline(tau_med, color='black', linestyle=':')
     ax[i,0].set_ylabel('PDF (NP={})'.format(len(rtd_df)))
-    #ax[i,0].text(0.9, 0.5, w, horizontalalignment='center',
-    #          verticalalignment='center', transform=ax[i,0].transAxes)
-    #ax[i,0].set_xlabel('Residence Time (years)')
     ax[i,0].set_title(w, fontsize=14)
     #
     ax[i,1].plot(rtd_df['Time'],  np.cumsum(rtd_df['wt']), marker='.', color='black')
@@ -962,8 +984,6 @@ for i in range(3):
     ax[i,1].axvline(tau, color='black', linestyle='--')
     #ax[1].axvline(tau_med, color='black', linestyle=':')
     ax[i,1].set_ylabel('CDF (NP={})'.format(len(rtd_df)))
-    #ax[i,1].text(0.9, 0.5, w, horizontalalignment='center',
-    #          verticalalignment='center', transform=ax[i,1].transAxes)
     ax[i,1].set_title(w, fontsize=14)
     # Clean up a bit
     matcks = ax[i,0].get_xticks()
@@ -975,12 +995,12 @@ for i in range(3):
     ax[i,1].tick_params(which='major', axis='x', bottom=True, top=False, length=4, width=1.25)
     ax[i,0].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
     ax[i,1].tick_params(which='minor', axis='x', bottom=True, top=False, length=3, width=1.0)
-    
 ax[2,0].set_xlabel('Particle Ages (years)')    
 ax[2,1].set_xlabel('Particle Ages (years)')
 #plt.savefig('./figures/ecoslim_rtd_comp.jpg',dpi=300)
 #plt.savefig('./figures/ecoslim_rtd_comp.svg',format='svg')
 plt.show()
+"""
 
 
 
@@ -989,28 +1009,40 @@ plt.show()
 
 
 
-#----------------------------------
+#-------------------------------------------------------
 #
 # Transient Age Distributions
 #
-#----------------------------------
-yr = [2017, 2018, 2019, 2020, 2021] # water years
+#-------------------------------------------------------
+yr = np.arange(2017,2022)
 
 wy_inds_   = [np.where((date_map['Date'] > '{}-09-30'.format(i-1)) & (date_map['Date'] < '{}-10-01'.format(i)), True, False) for i in yr]
 wy_inds    = [date_map.index[wy_inds_[i]] for i in range(len(yr))]
+wy_map     = dict(zip(yr, wy_inds))
 wy_inds    = np.concatenate(((wy_inds)))
 
 time_list       = list(wy_inds[np.isin(wy_inds, list(rtd_dict.keys()))]) #+ [model_time_samp] # model times that I want
 time_list_dates = date_map.loc[time_list,'Date'].to_list() # dates
-time_list_da = date_map.loc[time_list,'day'].to_list() # corresponding day of water year
-time_list_mn = [date_map.loc[i,'Date'].month for i in time_list] # corresponding month
-time_list_yr = date_map.loc[time_list,'wy'].to_list() # corresponding water year
+time_list_da   = date_map.loc[time_list,'day'].to_list() # corresponding day of water year
+time_list_mn   = [date_map.loc[i,'Date'].month for i in time_list] # corresponding month
+time_list_yr   = date_map.loc[time_list,'wy'].to_list() # corresponding water year
+time_list_map_ = [np.where(np.array(time_list_yr)==y)[0] for y in np.unique(np.array(time_list_yr))]
+time_list_map  = dict(zip(np.unique(np.array(time_list_yr)), time_list_map_))
+
 
 # Want first day of the month for x labels -- pick a full year like 2019
 month_map  = {1:'O',2:'N',3:'D',4:'J',5:'F',6:'M',7:'A',8:'M',9:'J',10:'J',11:'A',12:'S'}
 months     = list(month_map.values())
 days_ = [date_map['Date'][date_map['wy']==2019].iloc[i].month for i in range(len(date_map['Date'][date_map['wy']==2019]))]
 first_month  = [(np.array(days_)==i).argmax() for i in [10,11,12,1,2,3,4,5,6,7,8,9]]
+
+
+# Sample date to model time
+samp_date   = '2021-05-11' # date to consider and extract RTD info for
+samp_date_  = np.array([(i-pd.to_datetime(samp_date)).days for i in time_list_dates])
+_model_time = abs(samp_date_).argmin()
+
+
 
 
 #
@@ -1028,12 +1060,12 @@ for i in range(len(wells)):
     for t in range(len(time_list)):
         model_time = time_list[t]
         try:
-            rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 30)
+            rtd_df, rtd_dfs = flux_wt_rtd(rtd_dict, model_time, w, 50)
             rtd_df_.append(rtd_df)
             tau_mu.append((rtd_df['Time'] * rtd_df['wt']).sum())
             tau_med.append(np.median(rtd_df['Time']))
             # not sure here, some NANs where there are zero particles
-            rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+            #rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
     rtd_trans[w]['tau_mu']  = tau_mu
@@ -1078,35 +1110,219 @@ plt.show()
 
 
 
+
 #
 # Plot Temporal Dynamics of the Median Age
 #
-fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6,4.5))
-fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.96, bottom=0.15, right=0.98, left=0.25)
+fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(7,4.5))
+fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.96, bottom=0.15, right=0.98, left=0.20)
 for i in range(3):
     w    = wells[i]
     ax   = axes[i]
     ax.plot(time_list_dates, rtd_trans[w]['tau_mu'], color='black')
     ax.set_ylabel('Mean Age\n(years)')
-    loc = mdates.MonthLocator(bymonth=[10])
-    loc_min = mdates.MonthLocator(interval=1)
-    ax.xaxis.set_major_locator(loc)
-    ax.xaxis.set_minor_locator(loc_min)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.tick_params(axis='x', which='major', length=4.0, rotation=30, pad=0.1)
     #ax.tick_params(axis='both', which='both', top=True, right=True, labelbottom=False)
     ax.margins(x=0.01)
     ax.grid()
-# Clean up 
+    # Clean up 
     ax.set_ylabel('{}'.format(w))
     ax.tick_params(which='both', axis='y', left=True)
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-fig.text(0.06, 0.55, 'Mean Age (years)', ha='center', va='center', rotation='vertical')
+    for label in ax.get_xticklabels(which='major'):
+        label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+    for i in np.arange(2017,2021).reshape(2,2):
+        ax.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
+fig.text(0.03, 0.55, 'Mean Age (years)', ha='center', va='center', rotation='vertical')
 [axes[i].tick_params(axis='x', labelbottom=False) for i in [0,1]]
 plt.savefig('./figures/ecoslim_tau_trans.png',dpi=300)
 plt.savefig('./figures/ecoslim_tau_trans.svg',format='svg')
 plt.show()
 
+
+
+
+
+
+#
+# Plot Tracer Concentrations for Sampling Time
+#
+
+def gen_eco_adv(_rtd_df):
+    '''Generate ecoslim advective RTD to be used in FM RTD'''
+    tr_in = C_in_dict['CFC12']    
+    xx = np.arange(0, len(tr_in)) # input function times
+    xx[0] += 1.e-6
+    yy = np.interp(xx, _rtd_df['Time'].to_numpy(), _rtd_df['wt'].to_numpy(), left=0.0, right=0.0) # input function concentrations
+    # Make sure there are no Nans
+    if (yy>0.0).sum() == 0:
+        yy[int(_rtd_df['Time'].mean()//1)] = 1.0
+    yy /= yy.sum() 
+    return yy
+
+# Priors Based on Uhlemann 2022 Borehole NMR data
+nsize = 100
+
+Km_list_   = 10**(np.random.uniform(-8, -6, nsize)) # 1.e-8 to 1.e-6 matrix hydraulic conductivty
+Keff_list_ = 10**(np.random.uniform(-6, -4, nsize)) # 1.e-6 to 1.e-4 matrix hydraulic conductivty, can also do Keff_list_ as mulitiplicative factor of Km
+L_list_    = np.random.uniform(0.1, 0.5, nsize)     # fracture spacing (m), based on Gardner 2020
+Phim_list_ = 10**(np.random.uniform(-3, -1, nsize)) # 0.1% to 10% matrix porosity
+bbar_list_ = _bbar(Keff_list_, Km_list_, L_list_)
+# Want first value to minimize matrix impacts # Phi_im=0.000001, bbar=0.1
+Phim_list_ = np.array([1.e-6] + list(Phim_list_))
+bbar_list_ = np.array([0.1] + list(bbar_list_))
+
+
+
+def fm_conc(eco_adv):
+    '''eco_adv from gen_eco_adv above'''
+    # Dictionary to hold outputs
+    fm_dict = {'tau_mu':[],
+               'cfc12':[],
+               'sf6':[],
+               'h3':[],
+               'he4':[]}
+    
+    conv_ = conv.tracer_conv_integral(C_t=C_in_dict['CFC12'], t_samp=C_in_dict['CFC12'].index[-1])
+    for b,p in zip(bbar_list_, Phim_list_):
+        # Initialize
+        conv_.update_pars(C_t=C_in_dict['CFC12'], mod_type='frac_inf_diff', Phi_im=p, bbar=b, f_tadv_ext=eco_adv)
+        g_tau = conv_.gen_g_tp().copy()
+        fm_dict['tau_mu'].append(conv_.FM_mu)
+        fm_dict['cfc12'].append(conv_.convolve(g_tau=g_tau))
+        # sf6 prediciton
+        conv_.C_t=C_in_dict['SF6']
+        fm_dict['sf6'].append(conv_.convolve(g_tau=g_tau))
+        # tritium prediction
+        conv_.C_t = C_in_dict['H3_tu']
+        conv_.update_pars(t_half=12.34)
+        h3 = conv_.convolve(g_tau=g_tau)
+        if h3 < 1.e-10:
+            fm_dict['h3'].append(0.0)
+        else:
+            fm_dict['h3'].append(h3)
+        # Helium-4 prediction
+        conv_.C_t = C_in_dict['He4_ter']
+        conv_.update_pars(rad_accum='4He', J=ng_utils.J_flux(Del=1., rho_r=2700, rho_w=1000, U=3.0, Th=10.0, phi=0.05))
+        fm_dict['he4'].append(conv_.convolve(g_tau=g_tau))
+    return fm_dict
+
+
+rerun = True
+if rerun:
+    fm_dict_wells = {}
+    for r in range(3):
+        w    = wells[r]
+        fm_dict_wells[w] = {}
+        _rtd_df = rtd_trans[w]['rtd_df'][_model_time]
+        _tau    = rtd_trans[w]['tau_mu'][_model_time]
+        _yy     = gen_eco_adv(_rtd_df)
+        _conc_df = fm_conc(_yy)
+        fm_dict_wells[w] = _conc_df
+    
+        with open('fm_dict_wells.pk', 'wb') as handle:
+            pickle.dump(fm_dict_wells, handle)
+else:
+    fm_dict_wells = pd.read_pickle('./fm_dict_wells.pk')
+
+
+
+# Histogram plot
+# tracers as columns - wells as rows
+tracers = ['tau_mu', 'h3', 'cfc12', 'he4']
+fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(8,5))
+fig.subplots_adjust(wspace=0.1, hspace=0.3, top=0.98, bottom=0.15, left=0.05, right=0.96)
+for r in range(3):
+    w   = wells[r]
+    _cc = fm_dict_wells[w]
+    for c in range(4):
+        ax  = axes[r,c]
+        tr_ = tracers[c]
+        dd_ = np.array(_cc[tr_])
+        dd  = dd_[1:]
+        #if tr_=='he4':
+        if tr_ in ['tau_mu','he4']:
+            ax.set_xscale('log')
+            hist, bins = np.histogram(dd, bins=15)
+            logbins = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
+            ax.hist(dd, bins=logbins, log=False, histtype='bar', color='grey', alpha=0.7, linewidth=1.5)   
+            #if tr_ == 'tau_mu':
+                #ax.set_xlim(10, ax.get_xlim()[1])
+                #ax.xaxis.set_major_locator(ticker.LogLocator(base=10.0))
+                #ax.xaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12))
+        else:
+            if dd.max() < 1.e-7:
+                ax.axvline(0.00, c='grey')
+                if dd_.max() < 1:
+                    ax.set_xlim(-0.1,0.1)
+            else:
+                ax.hist(dd, bins=15, log=False, histtype='bar', color='grey', alpha=0.7, linewidth=1.5)
+        ax.minorticks_on()
+        ax.tick_params(axis='y', which='both', labelleft=False, left=False)
+        # Plot the EcoSlim - no matrix diffusion as line
+        dd = dd_[0]
+        ax.axvline(dd, color='C0', linestyle='--')
+        # Plot field observation
+        if tr_ != 'tau_mu':
+            obs = obs_dict[tr_][w]
+            ax.axvline(obs, color='C3', linestyle=':', linewidth=2.5)
+        if c == 0:
+            ax.set_ylabel(w)
+        if r == 2:
+            ax.set_xlabel('{} ({})'.format(ylabs[tr_], ylabs_units[tr_]), labelpad=1.0)
+        else:
+            #ax.tick_params(axis='x', labelbottom=False)
+            pass
+#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
+#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
+plt.show()
+
+
+
+# Errorbar plot
+# tracers as columns - wells as rows
+tracers = ['tau_mu', 'h3', 'cfc12', 'he4']
+fig, axes = plt.subplots(nrows=1, ncols=4, figsize=(8,4))
+fig.subplots_adjust(wspace=0.5, hspace=0.3, top=0.8, bottom=0.15, left=0.08, right=0.96)
+for i in range(4):
+    ax  = axes[i]
+    for j in range(3):
+        w   = wells[j]
+        _cc = fm_dict_wells[w]
+        tr_ = tracers[i]
+        dd_ = np.array(_cc[tr_])
+        dd  = dd_[1:]
+        
+        if tr_ in ['tau_mu','he4']:
+            ax.set_yscale('log')
+            ax.scatter(j, dd.mean(), marker='o', facecolors='none', color='C{}'.format(j))   
+            ax.scatter(j, np.median(dd), marker='_', color='C{}'.format(j))
+            ax.vlines(j, dd.min(), dd.max(), color='C{}'.format(j))
+        else:
+            ax.scatter(j, dd.mean(), marker='o', facecolors='none', color='C{}'.format(j))
+            ax.scatter(j, np.median(dd), marker='_', color='C{}'.format(j))
+            ax.vlines(j, dd.min(), dd.max(), color='C{}'.format(j))
+        ax.minorticks_on()
+        #ax.tick_params(axis='y', which='both', labelleft=False, left=False)
+        # Plot the EcoSlim - no matrix diffusion as line
+        dd = dd_[0]
+        ax.scatter(j+0.1, dd, marker='D', color='C{}'.format(j))
+        # Plot field observation
+        if tr_ != 'tau_mu':
+            obs = obs_dict[tr_][w]
+            ax.scatter(j-0.1, obs, marker='*', s=55, color='C{}'.format(j))
+    ax.set_title('{}\n({})'.format(ylabs[tr_], ylabs_units[tr_]))
+    ax.set_xticks(ticks=[0,1,2], labels=wells)
+    ax.tick_params(axis='x', rotation=30, pad=0.1)
+    ax.tick_params(axis='x', which='minor', bottom=False)
+    ax.spines.right.set_visible(False)
+    ax.spines.top.set_visible(False)
+plt.savefig('./figures/ecoslim_rtd_fm.png',dpi=300)
+plt.savefig('./figures/ecoslim_rtd_fm.svg',format='svg')
+plt.show()
 
 
 
@@ -1122,7 +1338,9 @@ plt.show()
 # Dummy Soil Wells
 #
 #--------------------------------
-yr = [2017, 2018, 2019, 2020, 2021]
+
+#yr = [2017, 2018, 2019, 2020, 2021]
+yr = np.arange(2017,2021)
 wells = ['X404', 'X494', 'X528']
 names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
@@ -1144,7 +1362,7 @@ for i in range(len(wells)):
             tau_mu.append((rtd_df['Time'] * rtd_df['wt']).sum())
             tau_med.append(np.median(rtd_df['Time']))
             # not sure here, some NANs where there are zero particles
-            rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
+            #rtd_dfs['Time'] = rtd_dfs['Time'].interpolate(method='linear')
         except ValueError:
             pass
     rtd_trans[w]['tau_mu']  = tau_mu
@@ -1187,21 +1405,20 @@ plt.show()
 
 
 
+
 #
 # Plot Temporal Dynamics of the Median Age
 #
-fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6,4.5))
-fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.96, bottom=0.15, right=0.98, left=0.25)
+fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(7,4.5))
+fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.96, bottom=0.15, right=0.98, left=0.20)
 for i in range(3):
     w    = wells[i]
     ax   = axes[i]
     ax.plot(time_list_dates, rtd_trans[w]['tau_mu'], color='black')
     ax.set_ylabel('Mean Age\n(years)')
-    loc = mdates.MonthLocator(bymonth=[10])
-    loc_min = mdates.MonthLocator(interval=1)
-    ax.xaxis.set_major_locator(loc)
-    ax.xaxis.set_minor_locator(loc_min)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
+    #ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
     ax.tick_params(axis='x', which='major', length=4.0, rotation=30, pad=0.1)
     #ax.tick_params(axis='both', which='both', top=True, right=True, labelbottom=False)
     ax.margins(x=0.01)
@@ -1210,7 +1427,11 @@ for i in range(3):
     ax.set_ylabel('{}'.format(names[i]))
     ax.tick_params(which='both', axis='y', left=True)
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator())
-fig.text(0.06, 0.55, 'Mean Age (years)', ha='center', va='center', rotation='vertical')
+    for label in ax.get_xticklabels(which='major'):
+        label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+    for i in np.arange(2017,2021).reshape(2,2):
+        ax.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
+fig.text(0.03, 0.55, 'Mean Age (years)', ha='center', va='center', rotation='vertical')
 [axes[i].tick_params(axis='x', labelbottom=False) for i in [0,1]]
 plt.savefig('./figures/ecoslim_tau_trans.soil.png',dpi=300)
 plt.savefig('./figures/ecoslim_tau_trans.soil.svg',format='svg')
@@ -1228,7 +1449,7 @@ labs_ = {'X528':'Floodplain',
 w = 'X494'
 
 # multiple fractions
-fig, axes = plt.subplots(ncols=1, nrows=2, figsize=(5.5,3.5))
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,4.5))
 fig.subplots_adjust(top=0.96, bottom=0.25, left=0.20, right=0.96, hspace=0.15)
 ax = axes[1]
 #ax.set_title(labs_[w], fontsize=14)
@@ -1242,17 +1463,15 @@ for t in range(len(time_list)):
 fkeys = list(frac_young_.keys())
 for i in range(len(fkeys)):
     ax.plot(dates_, 100-np.array(frac_young_[fkeys[i]])*100, c='C{}'.format(i), linestyle='-', label='{} year'.format(fkeys[i])) 
-ax.set_ylabel('Fraction\nOlder (%)')
+ax.set_ylabel('PLM6 Soil\nFraction Older\n(%)')
 #ax.set_yscale('log')
 #ax.set_ylim(0.11,110.0)
 ##ax.yaxis.set_minor_locator(ax.yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12)))
 ax.yaxis.set_major_locator(MultipleLocator(50))
 ax.yaxis.set_minor_locator(AutoMinorLocator())
-loc = mdates.MonthLocator(bymonth=[10])
-loc_min = mdates.MonthLocator(interval=1)
-ax.xaxis.set_major_locator(loc)
-ax.xaxis.set_minor_locator(loc_min)
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
+#ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 ax.tick_params(axis='x', which='major', length=4.0, rotation=30, pad=0.1)
 ax.tick_params(axis='both', which='both', top=True, right=True)
 # Cleanup
@@ -1260,19 +1479,27 @@ ax.margins(x=0.01)
 ax.grid()
 ax.legend(handlelength=0.75, labelspacing=0.25, handletextpad=0.1, fontsize=13, loc='lower left')
           #bbox_to_anchor=(-0.007, 1.18) , fancybox=True, framealpha=0.95)
+for label in ax.get_xticklabels(which='major'):
+    label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+for i in np.arange(2017,2021).reshape(2,2):
+    ax.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
 #
 # Add Mean Age
 ax2 = axes[0]
 ax2.plot(dates_, rtd_trans[w]['tau_mu'], color='black')
-ax2.set_ylabel('Mean Age\n(years)')
-ax2.xaxis.set_major_locator(loc)
-ax2.xaxis.set_minor_locator(loc_min)
-ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+ax2.set_ylabel('PLM6 Soil\nMean Age\n(years)')
+ax2.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
+#ax2.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 ax2.yaxis.set_minor_locator(AutoMinorLocator())
 ax2.tick_params(axis='x', which='major', length=4.0)
 ax2.tick_params(axis='both', which='both', top=True, right=True, labelbottom=False)
 ax2.margins(x=0.01)
 ax2.grid()
+for label in ax2.get_xticklabels(which='major'):
+    label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+for i in np.arange(2017,2021).reshape(2,2):
+    ax2.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
 plt.savefig('./figures/rtd_younger_than.jpg', dpi=300)
 plt.savefig('./figures/rtd_younger_than.svg', format='svg')
 plt.show()
@@ -1282,6 +1509,53 @@ plt.show()
 
 
 
+#
+# In-depth CDF plots for Soil Wells
+#
+# Better for full timeseries plots
+yrs_comp = np.arange(2017, 2021).reshape(2,2)
+
+# Plot PLM6 Soil
+w = 'X494'
+fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(5,4))
+fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.98, bottom=0.15, left=0.15, right=0.97)
+for i in range(2):
+    for j in range(2):
+        r,c = i%2, j%2
+        print(r,c)
+        ax   = axes[r,c]
+        wy = yrs_comp[i][j]
+        time_list_ = time_list_map[wy]
+        for t in time_list_:
+            _rtd_df = rtd_trans[w]['rtd_df'][t]
+            _tau    = rtd_trans[w]['tau_mu'][t]
+            ax.plot(_rtd_df['Time'], np.cumsum(_rtd_df['wt']), color='black', alpha=0.75, zorder=4)
+            ax.axvline(_tau, color='grey', alpha=0.5, linestyle='-', zorder=2)
+        # Replot the middle one in red?
+        mid_ind  = np.where(np.array(rtd_trans[w]['tau_mu'])==np.sort(rtd_trans[w]['tau_mu'])[len(rtd_trans[w]['tau_mu'])//2])[0][0]
+        _rtd_df_ = rtd_trans[w]['rtd_df'][mid_ind]
+        _tau_    = rtd_trans[w]['tau_mu'][mid_ind]
+        #ax.plot(_rtd_df_['Time'], np.cumsum(_rtd_df_['wt']), color='red', lw=2.0, alpha=0.90, zorder=6)
+        #ax.axvline(_tau_, color='red', alpha=0.65, linestyle='--', zorder=5)
+        # Clean up 
+        #ax.set_ylabel(wy)
+        ax.text(0.85, 0.12, wy, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
+        ax.minorticks_on()
+        ax.yaxis.set_major_locator(MultipleLocator(0.5))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax.set_xlim(-1.0, 130.0)
+        if c != 0:
+            ax.tick_params(axis='y', labelleft=False)
+        if r != 1:
+            ax.tick_params(axis='x', labelbottom=False)
+#axes[2].set_xlabel('Particle Ages (years)')    
+fig.text(0.55, 0.02, 'Particle Age', ha='center')
+fig.text(0.01, 0.55, '{} CDF'.format(labs_[w]), va='center', rotation='vertical')
+mx =  max([rtd_trans[w]['rtd_df'][zz]['Time'].max() for zz in range(len(rtd_trans[w]['rtd_df']))])
+print ('Max Age = ', mx)
+plt.savefig('./figures/ecoslim_rtd.plm6_soil.grid.png',dpi=300)
+#plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.soil.svg',format='svg')
+plt.show()
 
 
 
@@ -1290,9 +1564,7 @@ plt.show()
 
 
 
-
-
-
+"""
 #------------------------------------
 #
 # Infiltration Location versus Age
@@ -1357,7 +1629,7 @@ for t in range(len(yr)):
         if t==0:
             ax.text(0.92, 0.95, months[m], horizontalalignment='center', verticalalignment='top', transform=ax.transAxes)
 plt.show()
-        
+"""
         
         
 
