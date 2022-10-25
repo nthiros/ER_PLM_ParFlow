@@ -278,7 +278,6 @@ class ecoslim_pnts_vtk():
 #dem = np.column_stack((X_,np.zeros_like(X_), Z_))
 
 
-'''
 #------
 # WY2017-2021
 # WY 2017-2021
@@ -297,7 +296,6 @@ with open('./parflow_out/ecoslim_MeanAge.1721.pk', 'wb') as f:
     pickle.dump(age_dict, f) 
 with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
     pickle.dump(rtd_dict, ff) 
-'''
 
 
 #------

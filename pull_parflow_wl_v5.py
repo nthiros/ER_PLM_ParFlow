@@ -149,10 +149,10 @@ z_info   = pd.read_csv('../utils/plm_grid_info_v3b.csv') # these are cell center
 #rundir, runname = ['wy_1979_2014']*2
 #rundir, runname = ['wy_2015_2021']*2
 
-for ff in ['wy_2017_2021']:
+for ff in ['wy_spinup','wy_2000_2016','wy_2017_2021']:
 #for ff in ['wy_2015_2021']:
     if ff in os.listdir():
-        print ('working on {}'.format(ff))
+        print ('working on {} water levels'.format(ff))
         pf_wt = pull_pfb_pressure(pf_wells, z_info['Depth_bls'].to_numpy(), z_info['Total_Depth'][0], ff, ff)
         pf_wt_bls, pf_wt_elev = pf_wt.get_water_table_ts()
         pf_wt_bls.index.name = 'Timestep'

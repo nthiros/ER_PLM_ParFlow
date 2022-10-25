@@ -89,19 +89,20 @@ def find_nsteps(dirname):
 
 
 #
+# WY 2000 - 2016
+print ('Working on WY 2000 to 2016 ET files')
+dirname, filename = 'wy_2000_2016', 'wy_2000_2016'
+nsteps = find_nsteps(dirname)
+pull_clm(dirname, filename, nsteps)
+
+#
 # WY 2017 - 2021
-print ('Working on wy 2017 to 2021')
+print ('Working on wy 2017 to 2021 ET files')
 dirname, filename = 'wy_2017_2021', 'wy_2017_2021'
 nsteps = find_nsteps(dirname)
 pull_clm(dirname, filename, nsteps)
 
 
-#
-# WY 2000 - 2016
-print ('Working on wy 2000 to 2016')
-dirname, filename = 'wy_2000_2016', 'wy_2000_2016'
-nsteps = find_nsteps(dirname)
-pull_clm(dirname, filename, nsteps)
 
 
 
