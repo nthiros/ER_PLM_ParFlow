@@ -292,7 +292,7 @@ class ecoslim_pnts_vtk():
             #pdb.set_trace()
             #f = self.vtk_files[times_boreholes[i]] 
             f = self.vtk_files[i]            
-            print ('b{}/{}'.format(i+1, len(self.vtk_files)))
+            print ('b{}/{}'.format(i+1, len(times_boreholes)))
                 
             ii = int(f.split('.')[-2])
             rtd_dict[ii] = {}
@@ -309,6 +309,7 @@ class ecoslim_pnts_vtk():
                 ll = l_bls[l]
                 rtd_dict[ii][ll] = {}
                 rtd_df     = pd.DataFrame(index=age_list_, columns=xinds_)
+                mass_df    = pd.DataFrame(index=age_list_, columns=xinds_)
                 source_df  = pd.DataFrame(index=[1,2,3], columns=xinds_)
                 Xin_df     = pd.DataFrame(index=np.arange(len(X_)), columns=xinds_)
 
@@ -328,9 +329,15 @@ class ecoslim_pnts_vtk():
                 for j in range(len(Xpos)):
                     w = 'X{}_{}'.format(xinds[j],i)
                     
-                    time    = dd['Time'][msk_x[:,j]] / 8760
-                    rtd_df.loc[:,xinds_[j]] = np.array([(time <= a).sum() for a in age_list_])
-                        
+                    #pdb.set_trace()
+                    
+                    time     = dd['Time'][msk_x[:,j]] / 8760
+                    rtd_mask = [np.where(time < a, True, False) for a in age_list_]
+                    rtd_df.loc[:,xinds_[j]] = [q.sum() for q in rtd_mask] # number particles with age less than -- a CDF
+                    # now the cumulative mass for each bin
+                    mass     = dd['Mass'][msk_x[:,j]]
+                    mass_df  = [mass[z].sum() for z in rtd_mask]
+                    
                     source   = dd['Source'][msk_x[:,j]]
                     source_df.loc[1,xinds_[j]] = (source==1).sum()
                     source_df.loc[2,xinds_[j]] = (source==2).sum()
@@ -452,8 +459,6 @@ yrs_      = np.unique(yrs)[1:]
 wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs_]
 wy_inds   = np.array([wy_inds_[i]*yrs_[i] for i in range(len(yrs_))]).sum(axis=0)
 times_boreholes = np.where((dates.day==1) & (wy_inds==2017))[0]
-# adjust for testing
-times_boreholes = np.array([1683, 1684])
 
 
 # Finally, run it
