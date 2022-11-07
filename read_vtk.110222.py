@@ -409,7 +409,7 @@ soil_ind = np.where(por[:,0]==por.max())[0].max()+1
 bed_ind  = np.where(por[:,0]==por.min())[0].min()
 
 # DEM info
-Z_  = np.loadtxt('elevation_v4.sa', skiprows=1)
+Z_  = np.loadtxt('../ER_PLM_ParFlow/elevation_v4.sa', skiprows=1)
 #X_  = np.arange(1., len(Z_))*1.5125 
 X_  = np.linspace(1.5125, len(Z_)*1.5125, len(Z_))
 dem = np.column_stack((X_,np.zeros_like(X_), Z_))
