@@ -316,14 +316,14 @@ class ecoslim_pnts_vtk():
                 ztop  = layer_elevs_[l]
                 zbot  = layer_elevs_[l+1]
 
-                xhigh = pts_x <= Xpos + 1.5125 
-                xlow  = pts_x >= Xpos - 1.5125  
+                xhigh = pts_x <= Xpos + 1.5125*2 
+                xlow  = pts_x >= Xpos - 1.5125*2  
                 zhigh = pts_z <= ztop # top of screen
                 zlow  = pts_z >= zbot # bottom of screen
                     
                 msk   = np.column_stack((xlow,xhigh,zlow,zhigh))
-                msk_  = msk.reshape(pts_z.shape[0], len(Xpos), 4) #[:,0] will give 4 corresponding to first Xpos
-                msk_x = msk_.sum(axis=2)==4
+                msk_  = msk.reshape(pts_z.shape[0], len(Xpos), 4) #msk_[:,:,0] will give 4 corresponding to first Xpos
+                msk_x = msk_.sum(axis=1)==4
                         
                 # Now pull values in the define box
                 for j in range(len(Xpos)):
@@ -336,8 +336,19 @@ class ecoslim_pnts_vtk():
                     rtd_df.loc[:,xinds_[j]] = [q.sum() for q in rtd_mask] # number particles with age less than -- a CDF
                     # now the cumulative mass for each bin
                     mass     = dd['Mass'][msk_x[:,j]]
-                    mass_df  = [mass[z].sum() for z in rtd_mask]
+                    mass_df.loc[:,xinds_[j]] = [mass[z].sum() for z in rtd_mask]
                     
+                    wt = mass/mass.sum()
+                    
+                    # Debugging
+                    if j == 0:
+                        #print ('layer {}'.format(l))
+                        #print ('  {}  Number of particles'.format(len(time)))
+                        #print ('  {}  Number of particles less than 1 year'.format([q.sum() for q in rtd_mask][0]))
+                        #print ('  {}  Mass of particles less than 1 year'.format([mass[z].sum() for z in rtd_mask][0]))
+                        #print ('  {:.4f}  Mean age (years)'.format((time*wt).sum()))
+                        pass
+        
                     source   = dd['Source'][msk_x[:,j]]
                     source_df.loc[1,xinds_[j]] = (source==1).sum()
                     source_df.loc[2,xinds_[j]] = (source==2).sum()
@@ -347,6 +358,7 @@ class ecoslim_pnts_vtk():
                     Xin_df.loc[:,xinds_[j]] = np.array([(Xin <= x).sum() for x in X_])
                         
                     rtd_dict[ii][ll]['rtd_cdf'] = rtd_df.copy()
+                    rtd_dict[ii][ll]['mass']    = mass_df.copy()
                     rtd_dict[ii][ll]['source']  = source_df.copy()
                     rtd_dict[ii][ll]['Xin_df']  = Xin_df.copy()
         return rtd_dict            
@@ -381,10 +393,15 @@ with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
 
 
 
-#--------------------------------
-# Working Through boreholes
-#--------------------------------
 
+
+
+
+#---------------------------------------
+#
+# Vertical Age Dynamics in Boreholes
+#
+#---------------------------------------
 
 # Parflow variable dz
 dz = np.array([1.00, 1.00, 1.00, 1.00, 1.00,       # 52.0 - 102.0
@@ -426,12 +443,17 @@ sap_elevs  = layer_elevs[soil_ind:bed_ind, :]
 bed_elevs  = layer_elevs[bed_ind:, :]
 
 # The above is very slow with N=32 layers. Manually define some layers instead
-l_bls = np.array([0.5, 2.0, 4.5, 6.5, 9.0, 14.0, 20.0, 30.0, 50.0, 80.0, 102.0])
-layer_elevs_ = np.array([np.subtract(Z_[xinds][i], l_bls) for i in range(len(xinds))]).T
+#l_bls = np.array([0.5, 2.0, 4.5, 6.5, 9.0, 14.0, 20.0, 30.0, 50.0, 80.0, 102.0])
+#layer_elevs_ = np.array([np.subtract(Z_[xinds][i], l_bls) for i in range(len(xinds))]).T
+l_bls = layer_depths.copy()
+layer_elevs_ = layer_elevs.copy()
 
 
 # Create a list of ages to calculate CDFs
-age_list_ = np.concatenate((np.arange(1,10,1), np.arange(10,50,5), np.arange(50,1000,10), np.arange(1000, 35000, 100)))
+#age_list_ = np.concatenate((np.arange(1,10,1), np.arange(10,50,5), np.arange(50,1000,10), np.arange(1000, 35000, 100)))
+age_list_ = np.concatenate((np.arange(0.5,5.0,0.5), np.arange(5,20,1), np.arange(20,100,5), np.arange(100,1000,10), np.arange(1000, 35000, 100)))
+
+
 
 # Create modified timelists to speed up process
 def pf_2_dates(startdate, enddate, f):
