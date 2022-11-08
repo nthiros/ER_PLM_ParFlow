@@ -480,7 +480,16 @@ yrs       = dates.year
 yrs_      = np.unique(yrs)[1:]
 wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs_]
 wy_inds   = np.array([wy_inds_[i]*yrs_[i] for i in range(len(yrs_))]).sum(axis=0)
-times_boreholes = np.where((dates.day==1) & (wy_inds==2017))[0]
+#times_boreholes = np.where((dates.day==1) & (wy_inds==2017))[0]
+# more targeted dates
+date_boreholes = ['2016-10-01', '2016-11-01', '2017-01-01', '2017-03-01',
+                  '2017-05-01', '2017-05-10', '2017-05-20', 
+                  '2017-06-01', '2017-06-10', '2017-06-20',
+                  '2017-07-01', '2017-07-15',
+                  '2017-08-01', '2017-09-01']
+times_boreholes = np.array([np.where(dates==db_)[0][0] for db_ in date_boreholes])
+
+
 
 
 # Finally, run it
