@@ -96,9 +96,8 @@ Xpos = [404, 494, 528]
 #bot_screen = 2.75
 #smp_depth  = 1.75
 
-
-top_screen = 0.1
-bot_screen = 4.5
+top_screen = 0.05
+bot_screen = 2.0
 smp_depth  = 1.0
 
 
