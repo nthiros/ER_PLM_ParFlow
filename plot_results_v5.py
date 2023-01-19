@@ -6,8 +6,11 @@
 #   Added soil wells for ecoslim
 # 08/31/2022
 #   Adding fracture/matrix diffusion RTD to ecoslim
-# 10/26/31
+# 10/26/2022
 #   Plots EcoSLIM tracer concentrations with matrix diffusion RTD model
+# 11/03/2022
+#   Adding plots for mean age in soil, saprolite, and bedrock
+#   Adding plots for depth resolved RTDs
 
 
 
@@ -850,7 +853,7 @@ nsize = 100
 Km_list_   = 10**(np.random.uniform(-8, -6, nsize)) # 1.e-8 to 1.e-6 matrix hydraulic conductivty
 Keff_list_ = 10**(np.random.uniform(-6, -4, nsize)) # 1.e-6 to 1.e-4 matrix hydraulic conductivty, can also do Keff_list_ as mulitiplicative factor of Km
 L_list_    = np.random.uniform(0.1, 0.5, nsize)     # fracture spacing (m), based on Gardner 2020
-Phim_list_ = 10**(np.random.uniform(-3, -1, nsize)) # 0.1% to 10% matrix porosity
+Phim_list_ = 10**(np.random.uniform(np.log10(0.05/100), np.log10(5/100), nsize)) # 0.05% to 5% matrix porosity (variable needs to be in decimal)
 bbar_list_ = _bbar(Keff_list_, Km_list_, L_list_)
 
 
@@ -1264,7 +1267,7 @@ else:
     fm_dict_wells = pd.read_pickle('./fm_dict_wells.pk')
 
 
-"""
+
 # Histogram plot
 # tracers as columns - wells as rows
 tracers = ['tau_mu', 'h3', 'cfc12', 'he4']
@@ -1295,11 +1298,12 @@ for r in range(3):
                     ax.set_xlim(-0.1,0.1)
             else:
                 ax.hist(dd, bins=15, log=False, histtype='bar', color='grey', alpha=0.7, linewidth=1.5)
+        ax.axvline(np.median(dd), color='black', alpha=0.6)
         ax.minorticks_on()
         ax.tick_params(axis='y', which='both', labelleft=False, left=False)
         # Plot the EcoSlim - no matrix diffusion as line
         dd = dd_[0]
-        ax.axvline(dd, color='C0', linestyle='--')
+        ax.axvline(dd, color='C0', linestyle='--', label='advective' if r==0 and c==1 else '')
         # Plot field observation
         if tr_ != 'tau_mu':
             #obs = obs_dict[tr_][w]
@@ -1315,7 +1319,8 @@ for r in range(3):
 #plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.png',dpi=300)
 #plt.savefig('./figures/ecoslim_rtd_comp_obs_ens.svg',format='svg')
 plt.show()
-"""
+
+
 
 
 
@@ -1379,7 +1384,7 @@ plt.show()
 
 #yr = [2017, 2018, 2019, 2020, 2021]
 yr = np.arange(2017,2021)
-wells = ['X404', 'X494', 'X528']
+wells = ['X404', 'X494', 'X508']
 names = ['PLM1 Soil', 'PLM6 Soil', 'Floodplain']
 
 #
@@ -1488,10 +1493,10 @@ plt.show()
 #
 # Plot Fraction Younger
 #
-labs_ = {'X528':'Floodplain',
+labs_ = {'X508':'Floodplain',
          'X494':'PLM6 Soil',
          'X404':'PLM1 Soil'}
-w = 'X528'
+w = 'X508'
 
 # multiple fractions
 fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,4.5))
@@ -1515,7 +1520,7 @@ ax.set_ylabel('PLM6 Soil\nFraction Older\n(%)')
 ax.yaxis.set_major_locator(MultipleLocator(50))
 ax.yaxis.set_minor_locator(AutoMinorLocator())
 ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
-#ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 ax.tick_params(axis='x', which='major', length=4.0, rotation=30, pad=0.1)
 ax.tick_params(axis='both', which='both', top=True, right=True)
@@ -1532,9 +1537,9 @@ for i in np.arange(2017,2021).reshape(2,2):
 # Add Mean Age
 ax2 = axes[0]
 ax2.plot(dates_, rtd_trans[w]['tau_mu'], color='black')
-ax2.set_ylabel('PLM6 Soil\nMean Age\n(years)')
+ax2.set_ylabel('{}\nMean Age\n(years)'.format(labs_[w]))
 ax2.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[10]))
-#ax2.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+ax2.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
 ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 ax2.yaxis.set_minor_locator(AutoMinorLocator())
 ax2.tick_params(axis='x', which='major', length=4.0)
@@ -1611,7 +1616,7 @@ plt.show()
 yrs_comp = np.arange(2017, 2021).reshape(2,2)
 
 # Plot PLM6 Soil
-w = 'X528'
+w = 'X508'
 fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(5,4))
 fig.subplots_adjust(wspace=0.05, hspace=0.1, top=0.98, bottom=0.15, left=0.15, right=0.97)
 for i in range(2):
@@ -1662,7 +1667,7 @@ plt.show()
 #
 #---------------------------------------------------------
 
-w = 'X528'
+w = 'X508'
 
 fig, ax = plt.subplots(figsize=(4,3))
 fig.subplots_adjust(top=0.88, bottom=0.2, left=0.25, right=0.9, hspace=0.2)
