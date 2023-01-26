@@ -431,8 +431,8 @@ Z_  = np.loadtxt('../ER_PLM_ParFlow/elevation_v4.sa', skiprows=1)
 X_  = np.linspace(1.5125, len(Z_)*1.5125, len(Z_))
 dem = np.column_stack((X_,np.zeros_like(X_), Z_))
 
-xinds = [65, 265, 424, 528]
-xinds_ = ['X65', 'X265', 'X424', 'X528']
+xinds = [265, 424, 494, 508]
+xinds_ = ['X265', 'X424', 'X494', 'X508']
 Xpos  = X_[xinds] 
 
 layer_depths = np.flip(dz_scale).cumsum()

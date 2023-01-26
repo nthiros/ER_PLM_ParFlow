@@ -238,8 +238,7 @@ for i,ii in zip(ts_list2, _ts_list2):
         pf_out_dict['et'][ii] = hut.pull_et()
         pf_out_dict['sat'][ii] = hut.sat
         pf_out_dict['press'][ii] = hut.press
-        pf_out_dict['overland_east'][i]  = hut.pull_overlandflow(slopex, slopey, mannings)[0]
-        pf_out_dict['overland_north'][i] = hut.pull_overlandflow(slopex, slopey, mannings)[1]
+        pf_out_dict['overland'][i]  = hut.pull_overlandflow(slopex, slopey, mannings)
     except TypeError:
         pass
 

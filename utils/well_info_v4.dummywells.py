@@ -5,7 +5,7 @@
 
 import numpy as np
 import pandas as pd
-from parflowio.pyParflowio import PFData
+#from parflowio.pyParflowio import PFData
 
 
 # Import DEM info -- Lat, Long, Elvations
@@ -90,7 +90,8 @@ dbs_c = dz_cumsum.max() - (dz_cumsum) + dz_scaled/2
 # Add dummy wells upslope for comparison purposes
 #-------------------
 # Xcell index number
-Xpos = [404, 494, 528]
+#Xpos = [404, 494, 528]
+Xpos =[404, 494, 508]
 
 #top_screen = 0.25
 #bot_screen = 2.75
