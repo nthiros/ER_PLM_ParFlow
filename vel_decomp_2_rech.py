@@ -20,22 +20,12 @@ import parflow.tools as pftools
 
 
 
+
 #------------------
 #
 # Utilities
 #
 #------------------
-
-
-def read_pfb(fname):
-    '''Read in a .pfb file'''
-    pfdata = PFData(fname)
-    pfdata.loadHeader()
-    pfdata.loadData()
-    return pfdata.copyDataArray()
-
-
-
 def read_pfb(fname):
     '''Read in a .pfb file'''
     pfdata = PFData(fname)
@@ -45,12 +35,6 @@ def read_pfb(fname):
 
 class hydro_utils():
     def __init__(self, dz_scale):
-        # define file names
-        #self.timestep = None
-        #self.press = None
-        #self.sat   = None
-        #self.specific_storage = None
-        #self.porosity = None
         self.dz_scale = dz_scale
         
     def read_fields(self, timestep, directory, header):
@@ -77,13 +61,13 @@ class hydro_utils():
         # Need to think about shapes here
         # This indexing is based on matching z velocity with K constrasts...
         fn_velx = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'velx',timestep))
-        self.velx = read_pfb(fn_velx)[:,:,1:]
+        self.velx = read_pfb(fn_velx) #[:,:,1:]
 
         fn_vely = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'vely',timestep))
-        self.vely = read_pfb(fn_vely)[:,1:,:]
+        self.vely = read_pfb(fn_vely) #[:,1:,:]
         
         fn_velz = os.path.join(directory, '{}.out.{}.{:05d}.pfb'.format(header,'velz',timestep))
-        self.velz = read_pfb(fn_velz)[1:,:,:]
+        self.velz = read_pfb(fn_velz) #[1:,:,:]
         
 
     def pull_wtd(self):
@@ -96,9 +80,13 @@ class hydro_utils():
     def pull_et(self):
          return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
     
+    def pull_overlandflow(self, slopex, slopey, mannings):
+         return pftools.hydrology.calculate_overland_fluxes(self.press, slopex, slopey, mannings, 1.5125, 1.5125) 
+    
     def pull_bedrock_ind(self):
         '''Find index where porosity changes, take this as bedrock. Soil is +1'''
         #pdb.set_trace()
+        # np.where(self.porosity[:,0,0] != self.porosity[:,0,0])[0]
         self.bedrock_ind = np.where(self.porosity[:,0,0]==self.porosity[:,0,0].min())[0].max()
     
     def vel_bedrock_layer(self, bedrock_mbls):
@@ -157,7 +145,7 @@ dz_scale = 10 * dz
 
 
 
-
+## Testing with a single timestep 
 ## Define timesteps and depth of bedrock in the model
 #ts   = 1683
 #bedrock_mbls = 9.0
@@ -179,7 +167,13 @@ dz_scale = 10 * dz
 #
 # Loop Through Transient Files
 #
+slopex = read_pfb('slope_x_v4.pfb')[0,:,:]
+slopey = read_pfb('slope_y_v4.pfb')[0,:,:]
+mannings = 5.52e-6
+
+
 bedrock_mbls = 9.0
+
 
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
@@ -188,9 +182,12 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'velsoil':{},
                'et':{},
                'sat':{},
-               'press':{}}
+               'press':{},
+               'overland':{}}
 
-# Use only files that exist
+#
+# WY 2000-2016
+#
 directory = 'wy_2000_2016'
 header    = 'wy_2000_2016'
 
@@ -211,13 +208,15 @@ for i in ts_list1:
         pf_out_dict['et'][i] = hut.pull_et()
         pf_out_dict['sat'][i] = hut.sat
         pf_out_dict['press'][i] = hut.press
+        pf_out_dict['overland'][i]  = hut.pull_overlandflow(slopex, slopey, mannings)
+        
     except TypeError:
         pass
     
+    
 #
-# Now WY 2017-2021
+# WY 2017-2021
 #
-
 directory = 'wy_2017_2021'
 header    = 'wy_2017_2021'
 
@@ -239,6 +238,8 @@ for i,ii in zip(ts_list2, _ts_list2):
         pf_out_dict['et'][ii] = hut.pull_et()
         pf_out_dict['sat'][ii] = hut.sat
         pf_out_dict['press'][ii] = hut.press
+        pf_out_dict['overland_east'][i]  = hut.pull_overlandflow(slopex, slopey, mannings)[0]
+        pf_out_dict['overland_north'][i] = hut.pull_overlandflow(slopex, slopey, mannings)[1]
     except TypeError:
         pass
 
