@@ -81,7 +81,7 @@ class hydro_utils():
          return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
     
     def pull_overlandflow(self, slopex, slopey, mannings):
-         return pftools.hydrology.calculate_overland_fluxes(self.press, slopex, slopey, mannings, 1.5125, 1.5125) 
+         return pftools.hydrology.calculate_overland_flow(self.press, slopex, slopey, mannings, 1.5125, 1.5125) 
     
     def pull_bedrock_ind(self):
         '''Find index where porosity changes, take this as bedrock. Soil is +1'''
