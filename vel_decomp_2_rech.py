@@ -76,7 +76,10 @@ class hydro_utils():
 
     def pull_storage(self):
         return pftools.hydrology.calculate_subsurface_storage(self.porosity, self.press, self.sat, self.specific_storage, 1.5125, 1.0, self.dz_scale)
-       
+   
+    def pull_surface_storage(self):
+        return pftools.hydrology.calculate_surface_storage(self.press, 1.5125, 1.0, self.dz_scale)
+    
     def pull_et(self):
          return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
     
@@ -178,6 +181,7 @@ bedrock_mbls = 9.0
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'wtd':{},
                'specific_storage':{},
+               'surface_storage':{},
                'velbed':{},
                'velsoil':{},
                'et':{},
@@ -203,6 +207,7 @@ for i in ts_list1:
         hut.read_fields(i, directory, header)
         pf_out_dict['wtd'][i] = hut.pull_wtd()
         pf_out_dict['specific_storage'][i] = hut.pull_storage()
+        pf_out_dict['surface_storage'][i] = hut.pull_surface_storage()
         pf_out_dict['velbed'][i] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][i] = hut.vel_soil_layer(bedrock_mbls)
         pf_out_dict['et'][i] = hut.pull_et()
@@ -232,6 +237,7 @@ for i,ii in zip(ts_list2, _ts_list2):
         hut.read_fields(i, directory, header)
         pf_out_dict['wtd'][ii] = hut.pull_wtd()
         pf_out_dict['specific_storage'][ii] = hut.pull_storage()
+        pf_out_dict['surface_storage'][ii] = hut.pull_surface_storage()
         pf_out_dict['velbed'][ii] = hut.vel_bedrock_layer(bedrock_mbls)
         pf_out_dict['velsoil'][ii] = hut.vel_soil_layer(bedrock_mbls)
         pf_out_dict['et'][ii] = hut.pull_et()
