@@ -1,3 +1,4 @@
+# Update 10/13/2022 - plots back to wy2008
 # Cleanup on 09/29/2022
 # Makes a bunch of plots of the ParFLOW-CLM land surface dynamics
 # 
@@ -24,6 +25,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib import ticker
 import matplotlib.patches as patches
 import matplotlib
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 plt.rcParams['font.size'] = 14
 
 
@@ -36,32 +39,29 @@ plt.rcParams['font.size'] = 14
 #
 #---------------------------
 nsteps = 1794  # Daily Outputs
-
 yrs = [2017,2018,2019,2020,2021] # Calender years within timeseries
-
-yr = 2020 # year for plotting
-
-fpath = os.path.join('./','clm_figs_wy{}'.format(yr))
-if not os.path.exists(fpath):
-    os.makedirs(fpath)
+yr = 2018
 
 
 
 #---------------------------
 #
-# Read in data
+# Read in ParFlow-CLM Data
 #
 #---------------------------
 #
 # Read in pickles with all data 
 #
 # Generated using 'et_to_pickle.py'
-clm_out_ = pd.read_pickle('parflow_out/clm_out_dict.pk') # this is from the CLM output files
+clm_out_ = pd.read_pickle('parflow_out/clm_out_dict.2017_2021.pk') # this is from the CLM output files
 # Reset timestep keys to start with zero index
 clm_out = {i: v for i, v in enumerate(clm_out_.values())}
 clm_keys = list(clm_out[0].keys())
 
-pf = pd.read_pickle('parflow_out/pf_out_dict.pk') # this is from parflow files using pftools
+
+
+
+
 
 
 #
@@ -190,7 +190,7 @@ def pull_wy(df, wy, var):
 
 
 #
-# MET Forcing -- precipitation and SWE
+# MET Forcing -- precipitation
 #
 
 fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,4))
@@ -234,21 +234,10 @@ plt.show()
 
 
 
-#
-# CLM SWE and ET
-#
-def accum_swe(wy):
-    swe_accum = 0
-    swe_accum_list = []
-    swe = pull_wy(clm_out, wy, 'swe_out').mean(axis=0)
-    for i in range(len(swe)-1):
-        if (swe[i+1]-swe[i]) > 0.0:
-            swe_accum += swe[i+1]-swe[i]
-        swe_accum_list.append(swe_accum)
-    return swe_accum_list
 
-
-# Plot with SWE and ET
+#
+# Plot CLM SWE and ET Monthly values
+#
 fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(7,6))
 fig.subplots_adjust(bottom=0.1, top=0.9, left=0.18, right=0.9, hspace=0.3)
 # ET
@@ -269,9 +258,10 @@ for i in range(len(yrs)):
         axes[i].set_xlim([-0.5, 12.0]) 
 # SWE
 for i in range(len(yrs)):
-    _swe = accum_swe(yrs[i])
+    #_swe = accum_swe(yrs[i])
     swe  = pull_wy(clm_out, yrs[i], 'swe_out').mean(axis=0)
     axes[0].plot(np.arange(len(swe)), swe, color='C{}'.format(i), label='{}'.format(yrs[i]))
+    axes[0].fill_between(np.arange(len(swe)), swe, 0.0, color='C{}'.format(i), alpha=0.1)
     axes[0].set_xlim(-10,365)
     axes[0].set_xticks(first_month+[365])
     axes[0].set_xticklabels(labels=months+[''])
@@ -297,16 +287,390 @@ plt.show()
 
 
 
+#------------------------------------------
+#
+# Plot longer timeseries of ET and SWE
+#
+#------------------------------------------
+def set_wy(df):
+    dates     = df.copy().index
+    yrs       = dates.year
+    yrs_      = np.unique(yrs)[1:]
+    wy_inds_  = [np.where((dates > '{}-09-30'.format(i-1)) & (dates < '{}-10-01'.format(i)), True, False) for i in yrs_]
+    wy_inds   = np.array([wy_inds_[i]*yrs_[i] for i in range(len(yrs_))]).sum(axis=0)
+    first_yrs = [(wy_inds==i).argmax() for i in yrs_]
+    return list(wy_inds), list(first_yrs)
+
+
+
+
+
+#---------------------------------
+# Import NLDAS Data
+#--------------------------------- 
+units = {'rad_s':'Short Wave Radiation [W/m^2]',
+         'rad_l':'Long Wave Radiation [W/m^2]',
+         'prcp':'Precipitation [mm/s]',
+         'temp':'Air Temperature [K]',
+         'wnd_u':'East-to-West Wind [m/s]',
+         'wnd_v':'South-to-North Wind [m/s]',
+         'press':'Atmospheric Pressure [pa]',
+         'vap':'Water-vapor Specific Humidity [kg/kg]'}
+
+fdir  = '/Users/nicholasthiros/Documents/SCGSR/ParFlow_Modeling/MET'
+fname = 'met.2000-2021.3hr.txt'
+ddn    = pd.read_csv(os.path.join(fdir,fname), header=None, delim_whitespace=True, names=list(units.keys()))
+
+tstart = pd.to_datetime('1999-10-01 00', format='%Y-%m-%d %H')
+tend = pd.to_datetime('2021-08-30 12', format='%Y-%m-%d %H') # Water year 21 is not over yet
+hours = pd.Series(pd.date_range(tstart, tend, freq='3H'))
+# Drop Leap years
+mask = np.array([(hours[i].month==2) & (hours[i].day==29) for i in range(len(hours))])
+hours = hours[~np.array(mask)]
+
+ddn.index = hours
+
+# Aggregate to daily means
+ddn = ddn.resample('1D').agg(dict(rad_s='mean',rad_l='mean',prcp='mean',temp='mean',wnd_u='mean',wnd_v='mean',press='mean',vap='mean'))
+# Precipitation to mm/day per day (from mm/s)
+ddn.loc[:,'prcp'] = ddn.loc[:,'prcp']*86400
+
+# Cumulative Sum over water years
+ddn['wy'] = set_wy(ddn)[0]
+ddn_cs = ddn.groupby(by=['wy']).cumsum()
+
+
+
+#-------------------------------
+#
+# Import ParFlow-CLM
+#
+#-------------------------------
+# Generated using 'et_to_pickle.py'
+_f  = '/Users/nicholasthiros/Documents/SCGSR/ParFlow_Modeling/PLM_transect.v5'
+_ff = 'RunB.0.mint'
+
+# wy2000-2016
+f1     = os.path.join(_f, _ff, 'parflow_out/clm_out_dict.2000_2016.pk')
+dates1 = pf_2_dates('1999-10-01', '2016-09-30', '24H')
+
+# wy2017-2021
+f2     = os.path.join(_f, _ff, 'parflow_out/clm_out_dict.2017_2021.pk')
+dates2 = pf_2_dates('2016-10-01', '2021-08-29', '24H')
+
+def pull_clm(fdir, dates, var):
+    '''Return spatially averaged quantify at all timesteps.'''
+    clm_out_ = pd.read_pickle(fdir) # this is from the CLM output files
+    # Reset timestep keys to start with zero index
+    clm_out     = {i: v for i, v in enumerate(clm_out_.values())}
+    clm_keys    = list(clm_out[0].keys())
+    clm_     = np.row_stack([clm_out[i][var].to_numpy() for i in range(len(clm_out))])
+    clm_df   = pd.DataFrame(data=clm_, index=dates).mean(axis=1)
+    return clm_df
+
+clm_swe_0016 = pull_clm(f1, dates1, 'swe_out')
+clm_swe_1721 = pull_clm(f2, dates2, 'swe_out')
+clm_swe      = pd.DataFrame(pd.concat((clm_swe_0016, clm_swe_1721)), columns=['SWE'])
+
+clm_et_0016 = pull_clm(f1, dates1, 'qflx_evap_tot')
+clm_et_1721 = pull_clm(f2, dates2, 'qflx_evap_tot')
+clm_et      = pd.DataFrame(pd.concat((clm_et_0016, clm_et_1721))*60*60*24, columns=['ET']) 
+
+
+# cumulative yearly sum of ET
+clm_swe['wy'] = set_wy(clm_swe)[0]
+
+clm_et = pd.DataFrame(clm_et)
+clm_et['wy'] = set_wy(clm_et)[0]
+clm_et_cs    = clm_et.groupby(by='wy').cumsum()
+
+
+
+
+#
+# Plot
+#
+t1 = '2007-10-01'
+t2 = '2021-08-30'
+
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,4))
+# Total Precip from NLDAS
+_pp = ddn_cs.loc[t1:t2,'prcp']
+ax.plot(_pp, color='black', linestyle='--', label='NLDAS2 Precip.')
+plt.fill_between(x=_pp.index, y2=0, y1=_pp.to_numpy(), color='grey', alpha=0.1)
+# SWE from CLM
+_swe = clm_swe.loc[t1:t2,'SWE']
+ax.plot(_swe, color='C1', linestyle='-', alpha=0.7, label='CLM SWE')
+ax.fill_between(x=_swe.index, y2=0, y1=_swe.to_numpy(), color='C1', alpha=0.1)
+# ET from CLM
+_et = clm_et_cs.loc[t1:t2,'ET']
+ax.plot(_et,  color='C0', linestyle='-', alpha=0.7, label='CLM ET')
+plt.fill_between(x=_et.index, y2=0, y1=_et.to_numpy(), color='C0', alpha=0.1)
+ax.set_ylabel('Annual Cumulative\n(mm/year)')
+# Fill between years
+for i in np.arange(2007,2021).reshape(7,2):
+    ax.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
+# Cleanup
+ax.xaxis.set_major_locator(mdates.YearLocator(base=1, month=10, day=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=[5]))
+ax.tick_params(axis='x', which='major', length=4.0, rotation=45, pad=0.1)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(150))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.margins(x=0.01)
+ax.tick_params(axis='x', which='both', top=True)
+ax.tick_params(axis='y', which='both', right=True)
+ax.grid()
+for label in ax.get_xticklabels(which='major'):
+    label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+#ax.grid(which='minor', axis='x', color='C3', alpha=0.25)
+#ax.tick_params(axis='x', which='both', labelbottom=False)
+ax.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.63, 1.01), framealpha=0.95, handlelength=1.0, labelspacing=0.3, handletextpad=0.4, columnspacing=0.8)
+#ax.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.2), framealpha=0.95, handlelength=1.0, labelspacing=0.3, handletextpad=0.4)
+fig.tight_layout()
+plt.savefig('./figures/CLM_0021.png', dpi=300)
+plt.show()
+
+
+
+
+
+#
+# Plot
+#
+t1 = '2016-10-01'
+t2 = '2021-08-30'
+
+
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6,3.5))
+# Total Precip from NLDAS
+_pp = ddn_cs.loc[t1:t2,'prcp']
+ax.plot(_pp, color='black', linestyle='--', label='NLDAS2 Precip.')
+plt.fill_between(x=_pp.index, y2=0, y1=_pp.to_numpy(), color='grey', alpha=0.1)
+# SWE from CLM
+_swe = clm_swe.loc[t1:t2,'SWE']
+ax.plot(_swe, color='C1', linestyle='-', alpha=0.7, label='CLM SWE')
+ax.fill_between(x=_swe.index, y2=0, y1=_swe.to_numpy(), color='C1', alpha=0.1)
+# ET from CLM
+_et = clm_et_cs.loc[t1:t2,'ET']
+ax.plot(_et,  color='C0', linestyle='-', alpha=0.7, label='CLM ET')
+plt.fill_between(x=_et.index, y2=0, y1=_et.to_numpy(), color='C0', alpha=0.1)
+ax.set_ylabel('Annual Cumulative\n(mm/year)')
+# Fill between years
+for i in np.arange(2017,2021).reshape(2,2):
+    ax.axvspan(pd.to_datetime('{}-10-01'.format(i[0])), pd.to_datetime('{}-09-30'.format(i[1])), alpha=0.04, color='red')
+# Cleanup
+ax.xaxis.set_major_locator(mdates.YearLocator(base=1, month=10, day=1))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+ax.tick_params(axis='x', which='major', length=4.0, rotation=0)#, pad=1.5)
+ax.yaxis.set_major_locator(ticker.MultipleLocator(150))
+ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
+ax.margins(x=0.01)
+ax.set_ylim(0, 751)
+ax.tick_params(axis='x', which='both', top=True)
+ax.tick_params(axis='y', which='both', right=True)
+ax.grid()
+#for label in ax.get_xticklabels(which='major'):
+#    label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+#ax.grid(which='minor', axis='x', color='C3', alpha=0.25)
+#ax.tick_params(axis='x', which='both', labelbottom=False)
+ax.legend(loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.21), framealpha=0.95, handlelength=1.0, labelspacing=0.3, handletextpad=0.4, columnspacing=0.8)
+fig.tight_layout()
+plt.savefig('./figures/CLM_1721.png', dpi=300)
+plt.show()
+
+
+
+
+#
+# Scatter plots of statistics across years 
+#
+
+# Precipitation 
+ddn_cs['wy'] = ddn['wy'].copy()
+_ddn_cs     = ddn_cs.groupby(by='wy')
+
+# ET
+clm_et_cs['wy'] = clm_et['wy'].copy()
+_clm_et_cs      = clm_et_cs.groupby(by='wy')
+
+# SWE
+clm_swe_cs       = pd.DataFrame(clm_swe.copy())
+clm_swe_cs['wy'] = clm_et['wy'].copy()
+_clm_swe_cs      = clm_swe_cs.groupby(by='wy')
+
+
+
+# 
+# Plot
+#
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(3.5,5))
+fig.subplots_adjust(top=0.96, bottom=0.15, left=0.3, right=0.96, hspace=0.4)
+# precip vs et
+ax[0].scatter( _clm_et_cs.max(), _ddn_cs.max()['prcp'], color='C0', marker='o', label='P vs. ET')
+ax[0].set_xlabel('Annual ET (mm)')
+ax[0].set_ylabel('Annual Precip. (mm)')
+# et vs swe
+ax[1].scatter(_clm_et_cs.max(), _clm_swe_cs.max(), color='C1', marker='s', label='ET vs. SWE')
+ax[1].set_xlabel('Annual ET (mm)')
+ax[1].set_ylabel('Annual SWE (mm)')
+# Cleanup
+for i in [0,1]:
+    ax[i].set_xlim(100, 1100)
+    ax[i].set_ylim(100, 1100)
+    ax[i].xaxis.set_major_locator(ticker.MultipleLocator(250))
+    ax[i].yaxis.set_major_locator(ticker.MultipleLocator(250))
+    ax[i].minorticks_on()
+    ax[i].grid()
+    one2one = np.arange(100,2000,1000)
+    ax[i].plot(one2one, one2one, linestyle='--', color='black', lw=1.0, alpha=0.8)
+plt.savefig('./figures/CLM_comp_0021.png', dpi=300)
+plt.show()
 
 
 
 
 
 
-#------------ 
+
+#
+# Stacked Monthly Plots For Many Years
+#
+
+# Aggrete ET monthly means
+clm_et_mn = clm_et.groupby(by=pd.Grouper(freq='M')).sum()
+clm_et_mn['wy'] = set_wy(clm_et_mn)[0]
+
+
+
+# 
+# Plot
+#
+fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(7,6))
+fig.subplots_adjust(bottom=0.1, top=0.9, left=0.18, right=0.9, hspace=0.3)
+
+_swe   = clm_swe.loc[t1:t2,  ['SWE','wy']]
+_et_cs = clm_et_cs.loc[t1:t2,['ET','wy']]
+_et_mn = clm_et_mn.loc[t1:,  ['ET','wy']]
+_yrs = _et.index.year.unique()
+
+for i in range(len(_yrs)):
+    _swe_ = _swe[_swe['wy']==_yrs[i]]['SWE']
+    axes[0].plot(np.arange(len(_swe_)), _swe_, color='C0', alpha=0.4, label='{}'.format(_yrs[i]))
+    axes[0].fill_between(np.arange(len(_swe_)), _swe_, 0.0, color='C0', alpha=0.1, label='{}'.format(_yrs[i]))
+    axes[0].set_xlim(-10,365)
+    axes[0].set_xticks(first_month+[365])
+    axes[0].set_xticklabels(labels=months+[''])
+    axes[0].yaxis.set_major_locator(ticker.MultipleLocator(200))
+    axes[0].set_ylabel('SWE\n(mm)')
+    # Monthly ET
+    _et_mn_ = _et_mn[_et_mn['wy']==_yrs[i]]['ET']
+    axes[1].plot(np.arange(len(_et_mn_)), _et_mn_.to_list(), color='C0', alpha=0.8)
+    axes[1].set_xticks([0]+list(months_num))
+    axes[1].set_xticklabels(labels=months+[''])
+    axes[1].set_xlim([-0.5, 12.0]) 
+    axes[1].set_ylabel('ET\n(mm/month)')
+    # Cumulative Annual ET
+    _et_cs_ = _et_cs[_et_cs['wy']==_yrs[i]]['ET']
+    axes[2].plot(np.arange(len(_et_cs_)+1), [0]+_et_cs_.to_list(), color='C0', alpha=0.8)
+    axes[2].set_xlim(-10,365)
+    axes[2].set_xticks(first_month+[365])
+    axes[2].set_xticklabels(labels=months+[''])
+    axes[2].yaxis.set_major_locator(ticker.MultipleLocator(100))
+    axes[2].set_ylabel('Cumulative ET\n(mm/year)')
+# Cleanup
+for i in [0,1,2]:
+    axes[i].grid()
+    axes[i].minorticks_on()
+    axes[i].tick_params(axis='x', labelrotation=0, pad=0.5)
+    axes[i].tick_params(axis='x', which='minor', top=False, bottom=False)
+    axes[i].tick_params(axis='y', which='both', right=True)
+#axes[0].legend(ncol=len(yrs), handlelength=0.75, labelspacing=0.15, columnspacing=0.7, handletextpad=0.3, loc='upper center', bbox_to_anchor=(0.5, 1.35))
+plt.savefig(os.path.join('./figures', 'CLM_SWE_ET.0821.png'),dpi=300)
+plt.show()
+    
+
+
+
+
+
+#
+# Comparsion of SWE recession rates
+#
+
+def summer_melt(df, wy):
+    '''Find the date when the last snow melts in the summer'
+       df has to have columns with wy and SWE'''
+    fall_mask = np.where((df[df['wy']==wy]['SWE'].index.month>3)&(df[df['wy']==wy]['SWE'].index.month<8), True, False)
+    snowmask = df[df['wy']==wy]['SWE'][fall_mask] > 0.0
+    return snowmask.idxmin() # last date where SWE > 0.0
+
+
+t1 = '2008-10-01'
+t2 = '2021-08-30'
+_clm_swe = clm_swe[t1:t2]
+
+
+# Find Date of max SWE for each WY
+clm_max     = np.array([_clm_swe[_clm_swe['wy']==y]['SWE'].max() for y in _clm_swe['wy'].unique()])
+clm_max_d   = pd.DatetimeIndex([_clm_swe[_clm_swe['wy']==y]['SWE'].idxmax() for y in _clm_swe['wy'].unique()])
+_clm_max_d  = pd.DatetimeIndex(['2000-{}-{}'.format(m,d) for m,d in zip(clm_max_d.month, clm_max_d.day)])
+
+clm_melt_d     = pd.DatetimeIndex([summer_melt(_clm_swe,y) for y in _clm_swe['wy'].unique()]) 
+_clm_melt_d    = pd.DatetimeIndex(['2000-{}-{}'.format(m,d) for m,d in zip(clm_melt_d.month, clm_melt_d.day)]) # Set all years to 2000 for plotting
+clm_melt_rate  = (clm_melt_d-clm_max_d).days 
+
+
+
+#
+# Plot
+#
+fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4.5, 5.5))
+#ax.scatter(_sn_melt_d, sn_max_d.year, marker='s', color='black', zorder=8, s=55, label='Butte SNOTEL')
+ax.scatter(_clm_max_d, clm_max_d.year,  marker='o',  color='black', zorder=9, s=55, label='Peak SWE')
+ax.scatter(_clm_melt_d, clm_max_d.year, marker='o', facecolors='none', edgecolors='black', zorder=9, s=55, label='No SWE')
+#
+#m1 = np.where(clm_max_d>sn_max_d, True, False)
+ax.hlines(y=clm_max_d.year, xmin=_clm_max_d, xmax=_clm_melt_d, color='C0', alpha=0.7, zorder=7)
+#
+ax.invert_yaxis()
+ax.set_ylabel('Water Year')
+#ax.set_xlabel('Peak SWE Date')
+# Label the mid point with the number of days
+mid_d =_clm_melt_d  - pd.to_timedelta(clm_melt_rate, unit='d')/2
+[ax.text(x=mid_d[j], y=clm_max_d.year[j]-0.01, s=clm_melt_rate[j]) for j in range(len(_clm_max_d))]
+# Cleanup
+ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+#ax.yaxis.set_minor_locator(ticker.MultipleLocator(1))
+#ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[3,4,5,6]))
+ax.xaxis.set_major_locator(mdates.DayLocator(bymonthday=[1]))
+ax.xaxis.set_minor_locator(mdates.DayLocator(bymonthday=[5,10,15,20,25]))
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%b-%d'))
+ax.set_xlim(pd.to_datetime('2000-03-01'),pd.to_datetime('2000-07-16'))
+for label in ax.get_xticklabels(which='major'):
+    label.set(horizontalalignment='right', rotation_mode="anchor")#, horizontalalignment='right')
+ax.tick_params(axis='x', which='both', rotation=30, pad=0.1, top=True)
+ax.tick_params(axis='y', right=True)
+#ax.set_xticks(ax.get_xticks(), ax.get_xticklabels(), rotation=30, ha="center",  rotation_mode="anchor")
+ax.legend(ncol=2, columnspacing=0.1, labelspacing=0.01, handletextpad=0.001, loc='upper center', bbox_to_anchor=(0.5, 1.15))
+ax.grid()
+fig.tight_layout()
+plt.savefig(os.path.join('./figures', 'CLM_Melt_Timing.png'),dpi=300)
+plt.show()
+
+
+
+
+
+
+
+
+#-----------------------------------------------
 # Not sure what to do with stuff below
 # Makes a bunch of plots for two years only
-#------------
+#-----------------------------------------------
 
 
 
@@ -315,9 +679,7 @@ plt.show()
 
 
 
-
-
-
+"""
 #--------------------------------------------
 #
 # CLM versus time plots
@@ -1290,7 +1652,7 @@ ax.set_ylabel('WTD (m)')
 ax.set_yscale('log')
 ax.set_xscale('log')
 fig.tight_layout()
-plt.show()
+plt.show()"""
 
 
 

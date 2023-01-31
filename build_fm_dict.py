@@ -32,10 +32,8 @@ import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
-sys.path.insert(0, '/Users/nicholasthiros/Documents/SCGSR/Age_Modeling')
+sys.path.insert(0, '/Users/nicholasthiros/Documents/SCGSR/Age_Modeling/utils')
 import convolution_integral_utils as conv
-
-sys.path.insert(0, '/Users/nicholasthiros/Documents/SCGSR/Age_Modeling/ng_interp')
 import noble_gas_utils as ng_utils
 
 
