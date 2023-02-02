@@ -97,9 +97,9 @@ Xpos =[404, 494, 508]
 #bot_screen = 2.75
 #smp_depth  = 1.75
 
-top_screen = 0.05
-bot_screen = 2.0
-smp_depth  = 1.0
+top_screen = 0.0
+bot_screen = 1.5
+smp_depth  = 0.75
 
 
 for i in range(len(Xpos)):
