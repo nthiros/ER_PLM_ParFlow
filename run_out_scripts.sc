@@ -1,7 +1,6 @@
 #!/bin/bash
 
 cp ../ER_PLM_ParFlow/pull_parflow_wl_v5.py .
-cp ../ER_PLM_ParFlow/read_vtk.041922.py .
 cp ../ER_PLM_ParFlow/read_vtk.110222.py .
 cp ../ER_PLM_ParFlow/et_to_pickle.py .
 cp ../ER_PLM_ParFlow/vel_decomp_2_rech.py .

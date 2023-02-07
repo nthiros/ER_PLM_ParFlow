@@ -263,8 +263,8 @@ class ecoslim_pnts_vtk():
             # Loop through each well
             for w in range(len(pf_well_coords)):
                 # Draw a box around well points to collect particles near the well, meters
-                xhigh = pt_xyz[:,0] <= pf_well_coords[w,0] + 1.5125 #2.0 
-                xlow  = pt_xyz[:,0] >= pf_well_coords[w,0] - 1.5125 #2.0  
+                xhigh = pt_xyz[:,0] <= pf_well_coords[w,0] + 2.0 #1.5125 #2.0 
+                xlow  = pt_xyz[:,0] >= pf_well_coords[w,0] - 2.0 #1.5125 #2.0  
                 zhigh = pt_xyz[:,2] <= pf_well_coords[w,2] # top of screen
                 zlow  = pt_xyz[:,2] >= pf_well_coords[w,3] # bottom of screen
                 

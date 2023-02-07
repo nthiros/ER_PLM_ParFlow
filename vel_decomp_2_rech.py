@@ -75,17 +75,22 @@ class hydro_utils():
         return wtd.ravel()
 
     def pull_storage(self):
-        return pftools.hydrology.calculate_subsurface_storage(self.porosity, self.press, self.sat, self.specific_storage, 1.5125, 1.0, self.dz_scale)
+        return pftools.hydrology.calculate_subsurface_storage(self.porosity, self.press, self.sat, self.specific_storage, 1.5125, 1.5125, self.dz_scale)
    
     def pull_surface_storage(self):
-        return pftools.hydrology.calculate_surface_storage(self.press, 1.5125, 1.0, self.dz_scale)
+        return pftools.hydrology.calculate_surface_storage(self.press, 1.5125, 1.5125, self.dz_scale)
     
     def pull_et(self):
-         return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.0, self.dz_scale)    
+         return pftools.hydrology.calculate_evapotranspiration(self.et, 1.5125, 1.5125, self.dz_scale)    
     
     def pull_overlandflow(self, slopex, slopey, mannings):
+         '''Generates a single value of overland flow values'''
          return pftools.hydrology.calculate_overland_flow(self.press, slopex, slopey, mannings, 1.5125, 1.5125) 
-    
+   
+    def pull_overlandflow_arr(self, slopex, slopey, mannings):
+         '''Generates spatial array of overland flow values'''
+         return pftools.hydrology.calculate_overland_fluxes(self.press, slopex, slopey, mannings, 1.5125, 1.5125) 
+   
     def pull_bedrock_ind(self):
         '''Find index where porosity changes, take this as bedrock. Soil is +1'''
         #pdb.set_trace()
@@ -126,10 +131,17 @@ class hydro_utils():
         # Velocity at first bedrock layer
         Vx_bed = self.velx[self.bedrock_ind+1,0,:]
         Vz_bed = self.velz[self.bedrock_ind+1,0,:]
-
         return  [Vx_bed, Vz_bed]
 
 
+    def vel_soil_wells(self, xpos):
+        '''pull the X and Z velocities at the soil wells.
+           Note that velocity pfb files are dim+1 in the coordinal directions - these are velocities across faces.
+           Using the 'other' velocity direction to get the cell centered velocity'''
+        #pdb.set_trace()
+        Vx = self.velz[-4:, 0, xpos] # top 4 cells is 1.5 m below land surface
+        Vz = self.velx[-4:, 0, xpos-1] # minus one because velx has dimensions +1
+        return [Vx, Vz]
         
 
 
@@ -174,8 +186,9 @@ slopex = read_pfb('slope_x_v4.pfb')[0,:,:]
 slopey = read_pfb('slope_y_v4.pfb')[0,:,:]
 mannings = 5.52e-6
 
-
 bedrock_mbls = 9.0
+
+xpos = 508 # soil well position
 
 
 pf_out_dict = {'bedrock_mbls':bedrock_mbls,
@@ -187,7 +200,9 @@ pf_out_dict = {'bedrock_mbls':bedrock_mbls,
                'et':{},
                'sat':{},
                'press':{},
-               'overland':{}}
+               'overland':{},
+               'overland_arr':{},
+               'soil_well_vel':{}}
 
 #
 # WY 2000-2016
@@ -214,6 +229,8 @@ for i in ts_list1:
         pf_out_dict['sat'][i] = hut.sat
         pf_out_dict['press'][i] = hut.press
         pf_out_dict['overland'][i]  = hut.pull_overlandflow(slopex, slopey, mannings)
+        pf_out_dict['overland_arr'][i]  = hut.pull_overlandflow_arr(slopex, slopey, mannings)
+        pf_out_dict['soil_well_vel'][i] = hut.vel_soil_wells(xpos)
     except TypeError:
         pass
     
@@ -244,6 +261,8 @@ for i,ii in zip(ts_list2, _ts_list2):
         pf_out_dict['sat'][ii] = hut.sat
         pf_out_dict['press'][ii] = hut.press
         pf_out_dict['overland'][ii]  = hut.pull_overlandflow(slopex, slopey, mannings)
+        pf_out_dict['overland_arr'][ii]  = hut.pull_overlandflow_arr(slopex, slopey, mannings)
+        pf_out_dict['soil_well_vel'][ii] = hut.vel_soil_wells(xpos)
     except TypeError:
         pass
 
