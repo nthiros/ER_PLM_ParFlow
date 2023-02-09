@@ -11,8 +11,8 @@ from matplotlib import ticker
 
 #----------
 # Read in top surface DEM files
-#head  = np.loadtxt('./elevation.sa', max_rows=1)
-#dem   = np.loadtxt('./elevation.sa', skiprows=1)
+head  = np.loadtxt('./elevation_v4.sa', max_rows=1)
+dem   = np.loadtxt('./elevation_v4.sa', skiprows=1)
 
 
 #-----------
@@ -87,7 +87,7 @@ layers_K = {}
 layers_K['soil1']   = 8.408e-05
 layers_K['soil2']   = 5.605e-05
 layers_K['wshale']  = 5.605e-06 
-layers_K['fshale']  = 5.605e-09 
+layers_K['fshale']  = 5.605e-07 
 
 # Porosity
 layers_por = {}
@@ -98,7 +98,7 @@ layers_por['fshale']  = 0.05
 
 # Van Genutchen relative perm: [alpha,n]
 layers_rel = {}
-layers_rel['soil1']    = [1.820, 1.789]
+layers_rel['soil1']   = [1.820, 1.789]
 layers_rel['soil2']   = [2.101, 1.686]
 layers_rel['wshale']  = [0.519, 1.595]
 layers_rel['fshale']  = [0.519, 1.595]
@@ -211,8 +211,8 @@ plt.show()
 #------------
 # pick one to model
 Kshale_top      = layers_K['fshale']
-Kshale_bottom   = layers_K['fshale']
-#Kshale_bottom   = 1.e-8
+#Kshale_bottom   = layers_K['fshale']
+Kshale_bottom   = 5.605e-11
 
 K_exp = K_exp_fun(Kshale_top, Kshale_bottom, dbs_shale)
 
@@ -307,7 +307,7 @@ f.writelines('pfset Geom.domain.Perm.Value            0.01\n\n')
 # Loop through permeability dictionary
 for i in range(len(ind_2_layer)):
     f.writelines('pfset Geom.i{}.Perm.Type \t\t Constant\n'.format(i+1))
-    f.writelines('pfset Geom.i{}.Perm.Value \t\t {:.8f}\n\n'.format(i+1, ind_2_layer.loc[i,'K_mhr_dec']))
+    f.writelines('pfset Geom.i{}.Perm.Value \t\t {:.10f}\n\n'.format(i+1, ind_2_layer.loc[i,'K_mhr_dec']))
 
 
 ### porosity
@@ -358,28 +358,6 @@ f.close()
 
 
 
-
-
-
-
-
-
-
-
-
-#------------------
-# Plot
-#------------------
-
-
-#d = [0.0] + ind_2_layer['bls'].to_list() # Cell depths
-
-#K_mhr = ind_2_layer['K_mhr_dec'].copy().to_numpy() # K in m/hr
-
-#K_ = K_mhr/3600 # m/sec
-#K = K_[0] + list(K_)
-
-# Using seperate script...
 
 
 
