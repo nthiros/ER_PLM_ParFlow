@@ -111,7 +111,6 @@ class ecoslim_grid_vtk():
         
         # Age df
         self.age_df = None     # final dataframe with ecoslim output at wells
-        
                
     def find_cgrid_vtk(self, dir_loc):
         '''Gathers all *.vtk files in directory with path dir_loc into a list.
@@ -143,7 +142,7 @@ class ecoslim_grid_vtk():
         inds = self.wells['Cell_ind'].to_numpy().astype(int)
         df.loc[:,time] = mesh[varname][inds]
         return df
-    
+ 
     def update_df_et(self, mesh):
         '''Pulls some of ET info'''
         #pdb.set_trace()
@@ -156,7 +155,7 @@ class ecoslim_grid_vtk():
             df.loc[i,'age']  = mesh['ET_Age'][ii]
             df.loc[i,'mass'] = mesh['ET_Mass'][ii]
         return df
-    
+ 
     def update_df_layers(self, mesh, df_layers, time):
         '''Utility function to store vtk output at times into a dataframe.
            This pulls Mean Age for entire: soil, saprolite, and bedrock layers -- not at single well points.'''
@@ -185,10 +184,7 @@ class ecoslim_grid_vtk():
            This pulls Mean Age along a vertical 'borehole' '''
         #pdb.set_trace()
         age_arr = np.flipud(mesh['Age'].reshape(NZ,559))
-<<<<<<< HEAD
         
-=======
->>>>>>> 8847aadaf8b724179232593aab6ccf4583224774
         for i in range(len(df_borehole)):
             df_borehole[i].loc[np.arange(NZ),time] = np.array(age_arr[:,xinds[i]])
         return df_borehole
@@ -203,18 +199,9 @@ class ecoslim_grid_vtk():
         df0,df1,df2,df3,df4,df5,df6,df7,df8 = [gen_df() for i in range(len(self.vars))]
         self.age_df = [df0,df1,df2,df3,df4,df5,df6,df7,df8]
         
-<<<<<<< HEAD
-        # holds mean age in soil, saprolite, and bedrock
-        self.age_layers_df = pd.DataFrame()
-        # borehole mean ages
-        self.age_boreX65  = pd.DataFrame(index=np.arange(NZ))
-        self.age_boreX265 = pd.DataFrame(index=np.arange(NZ))
-        self.age_boreX424 = pd.DataFrame(index=np.arange(NZ))
-        self.age_boreX528 = pd.DataFrame(index=np.arange(NZ))
-        self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
-        xinds  = [65, 265, 424, 528]
-        xinds_ = ['X65', 'X265', 'X424', 'X528']
-=======
+        # dictionary for ET info
+        et_dict = {}
+
         ## holds mean age in soil, saprolite, and bedrock
         #self.age_layers_df = pd.DataFrame()
         ## borehole mean ages
@@ -225,11 +212,8 @@ class ecoslim_grid_vtk():
         #self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
         #xinds  = [65, 265, 424, 528]
         #xinds_ = ['X65', 'X265', 'X424', 'X528']
->>>>>>> 8847aadaf8b724179232593aab6ccf4583224774
-        
-        # dictionary for ET info
-        et_dict = {}
-        
+         
+
         # populate the dataframes from each timestep
         for i in range(len(self.vtk_files)): # loop through each timestep
             f = self.vtk_files[i]
@@ -239,9 +223,9 @@ class ecoslim_grid_vtk():
                 self.update_df(mesh_i, self.age_df[j], ii, self.vars[j])
             # -- ET variables --
             et_dict[ii] = self.update_df_et(mesh_i)
-            # -- Layer Mean Ages --
+            # -- layer mean age --
             #self.update_df_layers(mesh_i, self.age_layers_df, ii)
-            ## borehole mean age
+            # -- borehole mean age --
             #self.update_df_borehole(mesh_i, xinds, self.age_boreholes, ii)
         #pdb.set_trace()
         out_dict = {} # Dictionary of Dataframes
@@ -256,10 +240,10 @@ class ecoslim_grid_vtk():
 ## Moved Below  
 ## Mean Age Data
 ## WY 2017-2021
-age           = ecoslim_grid_vtk(well_df)
-vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
-cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
-age_dict, et_dict      = age.read_vtk()
+#age           = ecoslim_grid_vtk(well_df)
+#vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
+#cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+#age_dict      = age.read_vtk()
 
 
 
@@ -467,17 +451,20 @@ age           = ecoslim_grid_vtk(well_df)
 vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
 age.vtk_files = vtk_files_c
 cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
-age_dict      = age.read_vtk()
+age_dict, et_dict   = age.read_vtk()
 
 get_rtd            = ecoslim_pnts_vtk(well_df, cell_xyzm)
 vtk_files          = get_rtd.find_pnts_vtk('./ecoslim_2017_2021')
 get_rtd.vtk_files  = vtk_files[::5]
 rtd_dict           = get_rtd.read_vtk()
+
 # Save to a dictionary
 with open('./parflow_out/ecoslim_MeanAge.1721.pk', 'wb') as f:
     pickle.dump(age_dict, f) 
-with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
-    pickle.dump(rtd_dict, ff) 
+with open('./parflow_out/ecoslim_ETAge.1721.pk', 'wb') as f:
+    pickle.dump(et_dict, f)
+with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as f:
+    pickle.dump(rtd_dict, f) 
 
 
 
