@@ -111,6 +111,7 @@ class ecoslim_grid_vtk():
         
         # Age df
         self.age_df = None     # final dataframe with ecoslim output at wells
+        
                
     def find_cgrid_vtk(self, dir_loc):
         '''Gathers all *.vtk files in directory with path dir_loc into a list.
@@ -143,6 +144,19 @@ class ecoslim_grid_vtk():
         df.loc[:,time] = mesh[varname][inds]
         return df
     
+    def update_df_et(self, mesh):
+        '''Pulls some of ET info'''
+        #pdb.set_trace()
+        df = pd.DataFrame(columns=['age','mass','x','z'])
+        dom = np.flip(np.arange(0,559*32).reshape(32,559), axis=0)
+        for i,ii in enumerate(np.where(mesh['ET_Mass']>0.0)[0]):
+            _row, _col = np.where(dom == ii)
+            df.loc[i,'z']    = _row[0]
+            df.loc[i,'x']    = _col[0]
+            df.loc[i,'age']  = mesh['ET_Age'][ii]
+            df.loc[i,'mass'] = mesh['ET_Mass'][ii]
+        return df
+    
     def update_df_layers(self, mesh, df_layers, time):
         '''Utility function to store vtk output at times into a dataframe.
            This pulls Mean Age for entire: soil, saprolite, and bedrock layers -- not at single well points.'''
@@ -171,7 +185,10 @@ class ecoslim_grid_vtk():
            This pulls Mean Age along a vertical 'borehole' '''
         #pdb.set_trace()
         age_arr = np.flipud(mesh['Age'].reshape(NZ,559))
+<<<<<<< HEAD
         
+=======
+>>>>>>> 8847aadaf8b724179232593aab6ccf4583224774
         for i in range(len(df_borehole)):
             df_borehole[i].loc[np.arange(NZ),time] = np.array(age_arr[:,xinds[i]])
         return df_borehole
@@ -186,6 +203,7 @@ class ecoslim_grid_vtk():
         df0,df1,df2,df3,df4,df5,df6,df7,df8 = [gen_df() for i in range(len(self.vars))]
         self.age_df = [df0,df1,df2,df3,df4,df5,df6,df7,df8]
         
+<<<<<<< HEAD
         # holds mean age in soil, saprolite, and bedrock
         self.age_layers_df = pd.DataFrame()
         # borehole mean ages
@@ -196,7 +214,21 @@ class ecoslim_grid_vtk():
         self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
         xinds  = [65, 265, 424, 528]
         xinds_ = ['X65', 'X265', 'X424', 'X528']
+=======
+        ## holds mean age in soil, saprolite, and bedrock
+        #self.age_layers_df = pd.DataFrame()
+        ## borehole mean ages
+        #self.age_boreX65  = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX265 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX424 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX528 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
+        #xinds  = [65, 265, 424, 528]
+        #xinds_ = ['X65', 'X265', 'X424', 'X528']
+>>>>>>> 8847aadaf8b724179232593aab6ccf4583224774
         
+        # dictionary for ET info
+        et_dict = {}
         
         # populate the dataframes from each timestep
         for i in range(len(self.vtk_files)): # loop through each timestep
@@ -205,27 +237,29 @@ class ecoslim_grid_vtk():
             ii = int(f.split('.')[-2])
             for j in range(len(self.vars)): # loop through each variable
                 self.update_df(mesh_i, self.age_df[j], ii, self.vars[j])
-            # layer mean age
-            self.update_df_layers(mesh_i, self.age_layers_df, ii)
-            # borehole mean age
-            self.update_df_borehole(mesh_i, xinds, self.age_boreholes, ii)
+            # -- ET variables --
+            et_dict[ii] = self.update_df_et(mesh_i)
+            # -- Layer Mean Ages --
+            #self.update_df_layers(mesh_i, self.age_layers_df, ii)
+            ## borehole mean age
+            #self.update_df_borehole(mesh_i, xinds, self.age_boreholes, ii)
         #pdb.set_trace()
         out_dict = {} # Dictionary of Dataframes
         for j in range(len(self.vars)):
             out_dict[self.vars[j]] = self.age_df[j].T.sort_index()
-        out_dict['Age_layers'] = self.age_layers_df.T
-        for z,r in zip(xinds_, self.age_boreholes):
-            out_dict[z] = r
-        return out_dict
+        #out_dict['Age_layers'] = self.age_layers_df.T
+        #for z,r in zip(xinds_, self.age_boreholes):
+        #    out_dict[z] = r
+        return out_dict, et_dict
     
 
 ## Moved Below  
 ## Mean Age Data
 ## WY 2017-2021
-#age           = ecoslim_grid_vtk(well_df)
-#vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
-#cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
-#age_dict      = age.read_vtk()
+age           = ecoslim_grid_vtk(well_df)
+vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
+cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+age_dict, et_dict      = age.read_vtk()
 
 
 
