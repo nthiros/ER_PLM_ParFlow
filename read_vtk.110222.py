@@ -30,7 +30,57 @@ import pdb
 well_df = pd.read_csv('../ER_PLM_ParFlow/utils/wells_2_pf_v4.dummy.csv', index_col=('well'))
 
 
-# Transect grid is 32 rows x 559 columns = 17888 cells
+# Update some of this on the fly  to ccount for deeper and shallower models
+# ParFlow Grid Info
+DZ = 10.0
+NX = 559
+# Variable Z scaling
+# Note - index 0 is the bottom on the domain
+#dz_scale = np.array([1.00, 1.00, 1.00, 1.00, 1.00,       # 52.0 - 102.0
+#                     0.80, 0.80,                         # 36.0 - 52.0
+#                     0.60, 0.60,                         # 24.0 - 36.0
+#                     0.40, 0.40,                         # 16.0 - 24.0
+#                     0.20, 0.20, 0.20,                   # 10.0 - 16.0  -- 2m layers down to 16 m
+#                     0.10, 0.10,                         # 8.0  - 10.0
+#                     0.10, 0.05, 0.05,                   # 6.0  - 8.0   -- 0.5m res possible down to 7.0 m
+#                     0.05, 0.05, 0.05, 0.05,             # 4.0  - 6.0
+#                     0.05, 0.05, 0.05, 0.05,             # 2.0  - 4.0
+#                     0.05, 0.05, 0.05, 0.025, 0.025])    # 0.0  - 2.0  
+with open(glob.glob('*.mat*')[0], 'r') as f:
+    l = f.readlines()
+cell_id  = []
+dz = []
+for ll in l:
+    try:
+        ll.split()[1].split('.')[1]
+    except IndexError:
+        pass
+    else:
+        if ll.split()[1].split('.')[0] == 'Cell':
+            cell_id.append(ll.split()[1].split('.')[1])
+            dz.append(float(ll.split()[2]))
+
+NZ = len(dz)
+#Layer thickness, counting from bottom up
+dz_scaled = np.array(dz) * DZ
+# Cumulative thickness, counting from bottom up
+dz_cumsum = dz_scaled.cumsum()
+# Cell centered z values, counting from bottom of domain to the top of the domain 
+dbs_c = dz_cumsum.max() - (dz_cumsum) + dz_scaled/2
+
+
+# Manually building the well position array for now...
+wells      = ['PLM1','PLM7','PLM6','X404','X494','X508']
+smp_depth  = [7.0, 20.0, 9.0, 0.025, 0.025, 0.025] # where to calculate pressure head from
+xpos       = [404, 424, 494, 404, 494, 508] # index for parflow cell in x direction
+# find parflow cell closest to sample depth
+for i in range(len(wells)):
+    pfz = abs(dbs_c - smp_depth[i]).argmin()
+    well_df.loc[wells[i], 'Cell_Z'] = pfz
+well_df['Cell_X'] = xpos
+well_df['Cell_ind'] = well_df['Cell_X'] + NX*well_df['Cell_Z']
+
+
 
 
 #----------------------------------------------------
@@ -61,6 +111,7 @@ class ecoslim_grid_vtk():
         
         # Age df
         self.age_df = None     # final dataframe with ecoslim output at wells
+        
                
     def find_cgrid_vtk(self, dir_loc):
         '''Gathers all *.vtk files in directory with path dir_loc into a list.
@@ -83,7 +134,7 @@ class ecoslim_grid_vtk():
         cent_avg = lambda coords: [np.mean(coords[i:i+2]) for i in [0,2,4]]
         cell_xyz = np.array([cent_avg(mesh.cell_bounds(n)) for n in range(mesh.n_cells)])
         self.cell_xyz = cell_xyz
-        self.vars = list(mesh.cell_arrays)
+        self.vars = list(mesh.cell_data)
         return cell_xyz
        
     def update_df(self, mesh, df, time, varname):
@@ -91,6 +142,19 @@ class ecoslim_grid_vtk():
         #pdb.set_trace()
         inds = self.wells['Cell_ind'].to_numpy().astype(int)
         df.loc[:,time] = mesh[varname][inds]
+        return df
+    
+    def update_df_et(self, mesh):
+        '''Pulls some of ET info'''
+        #pdb.set_trace()
+        df = pd.DataFrame(columns=['age','mass','x','z'])
+        dom = np.flip(np.arange(0,559*32).reshape(32,559), axis=0)
+        for i,ii in enumerate(np.where(mesh['ET_Mass']>0.0)[0]):
+            _row, _col = np.where(dom == ii)
+            df.loc[i,'z']    = _row[0]
+            df.loc[i,'x']    = _col[0]
+            df.loc[i,'age']  = mesh['ET_Age'][ii]
+            df.loc[i,'mass'] = mesh['ET_Mass'][ii]
         return df
     
     def update_df_layers(self, mesh, df_layers, time):
@@ -106,7 +170,7 @@ class ecoslim_grid_vtk():
         soil_ind = np.where(por[:,0]==por.max())[0].max()+1
         bed_ind  = np.where(por[:,0]==por.min())[0].min()
         
-        age_arr = np.flipud(mesh['Age'].reshape(32,559))
+        age_arr = np.flipud(mesh['Age'].reshape(NZ,559))
         
         df_layers.loc['soil_mu',time] = age_arr[:soil_ind, :-20].mean() # drop the toe of hillslope where BC looks to be factor? Floodplain well is at X528, so keep 559-l>528
         df_layers.loc['soil_sd',time] = age_arr[:soil_ind, :-20].std()
@@ -120,10 +184,9 @@ class ecoslim_grid_vtk():
         '''Utility function to store vtk output at times into a dataframe.
            This pulls Mean Age along a vertical 'borehole' '''
         #pdb.set_trace()
-        age_arr = np.flipud(mesh['Age'].reshape(32,559))
-        
+        age_arr = np.flipud(mesh['Age'].reshape(NZ,559))
         for i in range(len(df_borehole)):
-            df_borehole[i].loc[np.arange(32),time] = np.array(age_arr[:,xinds[i]])
+            df_borehole[i].loc[np.arange(NZ),time] = np.array(age_arr[:,xinds[i]])
         return df_borehole
     
     def read_vtk(self):
@@ -136,17 +199,19 @@ class ecoslim_grid_vtk():
         df0,df1,df2,df3,df4,df5,df6,df7,df8 = [gen_df() for i in range(len(self.vars))]
         self.age_df = [df0,df1,df2,df3,df4,df5,df6,df7,df8]
         
-        # holds mean age in soil, saprolite, and bedrock
-        self.age_layers_df = pd.DataFrame()
-        # borehole mean ages
-        self.age_boreX65  = pd.DataFrame(index=np.arange(32))
-        self.age_boreX265 = pd.DataFrame(index=np.arange(32))
-        self.age_boreX424 = pd.DataFrame(index=np.arange(32))
-        self.age_boreX528 = pd.DataFrame(index=np.arange(32))
-        self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
-        xinds  = [65, 265, 424, 528]
-        xinds_ = ['X65', 'X265', 'X424', 'X528']
+        ## holds mean age in soil, saprolite, and bedrock
+        #self.age_layers_df = pd.DataFrame()
+        ## borehole mean ages
+        #self.age_boreX65  = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX265 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX424 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreX528 = pd.DataFrame(index=np.arange(NZ))
+        #self.age_boreholes = [self.age_boreX65, self.age_boreX265, self.age_boreX424, self.age_boreX528]
+        #xinds  = [65, 265, 424, 528]
+        #xinds_ = ['X65', 'X265', 'X424', 'X528']
         
+        # dictionary for ET info
+        et_dict = {}
         
         # populate the dataframes from each timestep
         for i in range(len(self.vtk_files)): # loop through each timestep
@@ -155,27 +220,29 @@ class ecoslim_grid_vtk():
             ii = int(f.split('.')[-2])
             for j in range(len(self.vars)): # loop through each variable
                 self.update_df(mesh_i, self.age_df[j], ii, self.vars[j])
-            # layer mean age
-            self.update_df_layers(mesh_i, self.age_layers_df, ii)
-            # borehole mean age
-            self.update_df_borehole(mesh_i, xinds, self.age_boreholes, ii)
+            # -- ET variables --
+            et_dict[ii] = self.update_df_et(mesh_i)
+            # -- Layer Mean Ages --
+            #self.update_df_layers(mesh_i, self.age_layers_df, ii)
+            ## borehole mean age
+            #self.update_df_borehole(mesh_i, xinds, self.age_boreholes, ii)
         #pdb.set_trace()
         out_dict = {} # Dictionary of Dataframes
         for j in range(len(self.vars)):
             out_dict[self.vars[j]] = self.age_df[j].T.sort_index()
-        out_dict['Age_layers'] = self.age_layers_df.T
-        for z,r in zip(xinds_, self.age_boreholes):
-            out_dict[z] = r
-        return out_dict
+        #out_dict['Age_layers'] = self.age_layers_df.T
+        #for z,r in zip(xinds_, self.age_boreholes):
+        #    out_dict[z] = r
+        return out_dict, et_dict
     
 
 ## Moved Below  
 ## Mean Age Data
 ## WY 2017-2021
-#age           = ecoslim_grid_vtk(well_df)
-#vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
-#cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
-#age_dict      = age.read_vtk()
+age           = ecoslim_grid_vtk(well_df)
+vtk_files_c   = age.find_cgrid_vtk('./ecoslim_2017_2021')
+cell_xyzm     = age.read_vtk_grid(vtk_files_c[0])
+age_dict, et_dict      = age.read_vtk()
 
 
 
@@ -395,8 +462,7 @@ with open('./parflow_out/ecoslim_rtd.1721.pk', 'wb') as ff:
 
 
 
-
-
+"""
 #---------------------------------------
 #
 # Vertical Age Dynamics in Boreholes
@@ -500,7 +566,7 @@ rtd_dict_b         = get_rtd.read_vtk_boreholes()
 with open('./parflow_out/ecoslim_rtd.1721.bores.pk', 'wb') as ff:
     pickle.dump(rtd_dict_b, ff) 
 
-
+"""
 
 
 
